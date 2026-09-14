@@ -342,7 +342,7 @@ async function queryFastCloudSingle(text, targetLang = 'ar') {
 }
 
 // --- Unified Multi-Engine Hybrid Router ---
-async function handleTranslate({ text, mode = 'auto', targetLang = 'ar' }) {
+async function handleTranslate({ text, mode = 'auto', targetLang = 'ar', bypassCache = false }) {
   if (!text || typeof text !== 'string' || !text.trim()) {
     return { text: '', engine: 'none', fromCache: false };
   }
@@ -353,14 +353,17 @@ async function handleTranslate({ text, mode = 'auto', targetLang = 'ar' }) {
 
   const key = hashKey(trimmed, mode, targetLang, customModelName);
 
-  if (hotCache.has(key)) {
-    return { ...hotCache.get(key), fromCache: true };
-  }
-
-  const dbResult = await getCachedTranslation(key);
-  if (dbResult) {
-    hotCache.set(key, dbResult);
-    return { ...dbResult, fromCache: true };
+  if (bypassCache) {
+    hotCache.delete(key);
+  } else {
+    if (hotCache.has(key)) {
+      return { ...hotCache.get(key), fromCache: true };
+    }
+    const dbResult = await getCachedTranslation(key);
+    if (dbResult) {
+      hotCache.set(key, dbResult);
+      return { ...dbResult, fromCache: true };
+    }
   }
 
   const startTime = Date.now();
@@ -424,12 +427,16 @@ async function handleTranslate({ text, mode = 'auto', targetLang = 'ar' }) {
     durationMs: Date.now() - startTime
   };
 
-  if (hotCache.size >= MAX_HOT_CACHE) {
-    const oldestKey = hotCache.keys().next().value;
-    hotCache.delete(oldestKey);
+  // Never cache failed or untranslated errors
+  const isErrorOrUntranslated = usedEngine.includes('Error') || usedEngine === 'none' || (translatedText.trim() === trimmed && trimmed.length > 4);
+  if (!isErrorOrUntranslated && translatedText) {
+    if (hotCache.size >= MAX_HOT_CACHE) {
+      const oldestKey = hotCache.keys().next().value;
+      hotCache.delete(oldestKey);
+    }
+    hotCache.set(key, resultPayload);
+    await setCachedTranslation(key, resultPayload);
   }
-  hotCache.set(key, resultPayload);
-  await setCachedTranslation(key, resultPayload);
 
   return { ...resultPayload, fromCache: false };
 }
@@ -764,6 +771,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       break;
     case 'neural-menu-translate-section':
       await safeSendMessage(tab.id, { action: 'TRIGGER_TRANSLATE_SECTION' });
+      break;
+    case 'neural-menu-retry-section':
+      await safeSendMessage(tab.id, { action: 'TRIGGER_TRANSLATE_SECTION', bypassCache: true });
       break;
     case 'neural-menu-toggle-site-auto':
       await safeSendMessage(tab.id, { action: 'TOGGLE_SITE_AUTO_TRANSLATE' });

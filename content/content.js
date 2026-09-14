@@ -617,6 +617,7 @@
         </div>
         <div class="nt-btn-group">
           ${!loading ? `
+            <button class="nt-action-btn nt-btn-secondary nt-retry-btn" title="إعادة الترجمة وتحديث النتيجة"><span>إعادة الترجمة</span></button>
             <button class="nt-action-btn nt-btn-secondary nt-copy-btn" title="نسخ الترجمة">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -637,6 +638,16 @@
 
     tooltip.querySelector('.nt-close-btn')?.addEventListener('click', hideTooltip);
 
+    const retryBtn = tooltip.querySelector('.nt-retry-btn');
+    if (retryBtn) {
+      retryBtn.addEventListener('click', () => {
+        renderTooltipContent({ original, translated: '', loading: true, engine: 'AI', durationMs: 0 });
+        chrome.runtime.sendMessage({ action: 'TRANSLATE', text: original, mode: preferredMode, targetLang: 'ar', bypassCache: true }, (res) => {
+          if (!res) { renderTooltipContent({ original, translated: 'تعذر الاتصال بمحرك الترجمة.', loading: false, engine: 'خطأ', durationMs: 0 }); return; }
+          renderTooltipContent({ original, translated: res.text, loading: false, engine: res.engine, durationMs: res.durationMs, fromCache: false });
+        });
+      });
+    }
     const copyBtn = tooltip.querySelector('.nt-copy-btn');
     if (copyBtn) {
       copyBtn.addEventListener('click', () => {
@@ -801,7 +812,7 @@
     if (isPageTranslating) {
       statusMsg = 'جارٍ الترجمة الفورية...';
     } else if (isAutoTranslateActive) {
-      statusMsg = `الترجمة المستمرة (Auto-Translate) نشطة <span class="nt-page-bar-badge">${currentHostname || 'مستمر'}</span>`;
+      statusMsg = `الترجمة المستمرة نشطة <span class="nt-page-bar-badge">${currentHostname || 'مستمر'}</span>`;
     } else {
       statusMsg = `تمت ترجمة ${activeReplacements.length || 'كامل'} فقرات`;
     }
@@ -1093,11 +1104,11 @@
     updatePageFloatingBar();
   }
 
-  async function processBatch(batchNodes) {
+  async function processBatch(batchNodes, bypassCache = false) {
     const rawTexts = batchNodes.map(n => n.nodeValue.trim());
     return new Promise((resolve) => {
       chrome.runtime.sendMessage(
-        { action: 'TRANSLATE_BATCH', texts: rawTexts, mode: preferredMode, targetLang: 'ar' },
+        { action: 'TRANSLATE_BATCH', texts: rawTexts, mode: preferredMode, targetLang: 'ar', bypassCache },
         (res) => {
           if (res && Array.isArray(res.results)) {
             res.results.forEach((item, idx) => {
@@ -1202,7 +1213,7 @@
 
 
   // --- Section-Specific Translation (Right-Click Section) ---
-  function translateClickedSection() {
+  function translateClickedSection(!!request.bypassCache) {
     const section = lastRightClickedElement?.closest("p, article, section, div, li, blockquote, tr, td, h1, h2, h3, h4, h5, h6") || lastRightClickedElement;
     if (!section) return;
 
@@ -1234,7 +1245,7 @@
     }
 
     if (sectionNodes.length > 0) {
-      processBatch(sectionNodes);
+      processBatch(sectionNodes, bypassCache);
     }
   }
 
@@ -1249,7 +1260,7 @@
       }
       sendResponse({ status: 'ok', textFound: !!text });
     } else if (request.action === 'TRIGGER_TRANSLATE_SECTION') {
-      translateClickedSection();
+      translateClickedSection(!!request.bypassCache);
       sendResponse({ status: 'started' });
     } else if (request.action === 'TRIGGER_SELECTION_REPLACE_DIRECT') {
       const textToTranslate = request.selectionText || (window.getSelection() ? window.getSelection().toString().trim() : '');
