@@ -1213,7 +1213,7 @@
 
 
   // --- Section-Specific Translation (Right-Click Section) ---
-  function translateClickedSection(!!request.bypassCache) {
+  function translateClickedSection(bypassCache = false) {
     const section = lastRightClickedElement?.closest("p, article, section, div, li, blockquote, tr, td, h1, h2, h3, h4, h5, h6") || lastRightClickedElement;
     if (!section) return;
 
