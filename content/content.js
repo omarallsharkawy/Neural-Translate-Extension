@@ -9,6 +9,10 @@
 (function() {
   'use strict';
 
+  // Cleanup any orphaned host element from previous reload
+  try {
+    document.querySelectorAll("neural-translate-host").forEach(el => el.remove());
+  } catch(e) {}
   if (window.__neuralTranslateInjected) return;
   window.__neuralTranslateInjected = true;
 
@@ -137,6 +141,18 @@
 
   // --- 3. Shadow DOM Viewport Host ---
   function initShadowHost() {
+    // Remove any duplicate hosts in page DOM
+    const existingHosts = document.querySelectorAll("neural-translate-host");
+    if (existingHosts.length > 1) {
+      existingHosts.forEach((h, i) => { if (i > 0) h.remove(); });
+    }
+    if (existingHosts.length === 1 && existingHosts[0].shadowRoot) {
+      hostEl = existingHosts[0];
+      shadow = hostEl.shadowRoot;
+      microPill = shadow.querySelector(".nt-pill");
+      tooltip = shadow.querySelector(".nt-card");
+      return;
+    }
     if (hostEl && document.contains(hostEl)) return;
 
     if (hostEl) {
