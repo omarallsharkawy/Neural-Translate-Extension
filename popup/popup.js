@@ -349,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
   btnPageTranslate.addEventListener('click', () => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]?.id) {
-        chrome.tabs.sendMessage(tabs[0].id, { action: 'TRIGGER_PAGE_TRANSLATE' });
+        chrome.tabs.sendMessage(tabs[0].id, { action: 'TRIGGER_SINGLE_PAGE_TRANSLATE' });
         if (currentActiveDomain) {
           chrome.storage?.local?.get(['autoTranslateDomains'], (data) => {
             let domains = data?.autoTranslateDomains || [];

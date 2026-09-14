@@ -460,6 +460,121 @@ async function safeSendMessage(tabId, message) {
   }
 }
 
+// --- High-Efficiency Structured Batch Translator ---
+async function handleBatchTranslate(texts, mode = 'auto', targetLang = 'ar') {
+  const results = new Array(texts.length);
+  const uncachedIndices = [];
+
+  // 1. Check Caches first (0ms)
+  for (let i = 0; i < texts.length; i++) {
+    const trimmed = (texts[i] || '').trim();
+    if (!trimmed) {
+      results[i] = { text: '', engine: 'none', fromCache: true };
+      continue;
+    }
+    const key = hashKey(trimmed, mode, targetLang);
+    if (hotCache.has(key)) {
+      results[i] = { ...hotCache.get(key), fromCache: true };
+    } else {
+      uncachedIndices.push(i);
+    }
+  }
+
+  // Check persistent DB for uncached items
+  const stillUncached = [];
+  for (const idx of uncachedIndices) {
+    const trimmed = texts[idx].trim();
+    const key = hashKey(trimmed, mode, targetLang);
+    const dbRes = await getCachedTranslation(key);
+    if (dbRes) {
+      hotCache.set(key, dbRes);
+      results[idx] = { ...dbRes, fromCache: true };
+    } else {
+      stillUncached.push(idx);
+    }
+  }
+
+  if (stillUncached.length === 0) {
+    return results;
+  }
+
+  // 2. Translate uncached items using structured batch prompt
+  const CHUNK_SIZE = 10;
+  for (let b = 0; b < stillUncached.length; b += CHUNK_SIZE) {
+    const batchIndices = stillUncached.slice(b, b + CHUNK_SIZE);
+    await processStructuredSubBatch(batchIndices, texts, results, mode, targetLang);
+  }
+
+  return results;
+}
+
+async function processStructuredSubBatch(batchIndices, texts, results, mode, targetLang) {
+  const items = batchIndices.map((origIdx, localIdx) => '[' + localIdx + '] ' + texts[origIdx].trim());
+  const structuredPrompt = items.join("\n");
+
+  let translatedRaw = '';
+  let usedEngine = 'batch';
+  let success = false;
+
+  const customConfig = await getCustomApiConfig();
+  if ((mode === 'custom' || (mode === 'auto' && customConfig?.enabled)) && customConfig?.apiKey) {
+    try {
+      translatedRaw = await queryCustomApi(structuredPrompt, customConfig);
+      if (translatedRaw) {
+        usedEngine = 'API (' + (customConfig.model || 'Custom') + ')';
+        success = true;
+      }
+    } catch (e) {}
+  }
+
+  if (!success && (mode === 'ai' || mode === 'auto')) {
+    const isHealthy = await checkLocalHealth();
+    if (isHealthy) {
+      try {
+        translatedRaw = await queryLocalEngine(structuredPrompt);
+        if (translatedRaw) {
+          usedEngine = 'Gemma-4 (GPU)';
+          success = true;
+        }
+      } catch (e) {}
+    }
+  }
+
+  // Parse structured response
+  const parsedMap = new Map();
+  if (success && translatedRaw) {
+    const lines = translatedRaw.split("\n");
+    for (const line of lines) {
+      const match = line.match(/^\s*\[(\d+)\]\s*(.*)$/);
+      if (match) {
+        const localIdx = parseInt(match[1], 10);
+        const transText = match[2].trim();
+        if (transText) {
+          parsedMap.set(localIdx, transText);
+        }
+      }
+    }
+  }
+
+  // Assign results and cache them
+  for (let localIdx = 0; localIdx < batchIndices.length; localIdx++) {
+    const origIdx = batchIndices[localIdx];
+    const originalText = texts[origIdx].trim();
+
+    if (parsedMap.has(localIdx)) {
+      const transText = parsedMap.get(localIdx);
+      const payload = { text: transText, engine: usedEngine, durationMs: 120 };
+      results[origIdx] = { ...payload, fromCache: false };
+
+      const key = hashKey(originalText, mode, targetLang);
+      hotCache.set(key, payload);
+      setCachedTranslation(key, payload);
+    } else {
+      const singleRes = await handleTranslate({ text: originalText, mode, targetLang });
+      results[origIdx] = singleRes;
+    }
+  }
+}
 // --- Extension Message Listeners ---
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (!request || !request.action) return false;
@@ -472,13 +587,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     case 'TRANSLATE_BATCH':
       (async () => {
         const { texts, mode = 'auto', targetLang = 'ar' } = request;
-        if (!Array.isArray(texts)) {
+        if (!Array.isArray(texts) || texts.length === 0) {
           sendResponse({ results: [] });
           return;
         }
-        const results = await Promise.all(
-          texts.map(txt => handleTranslate({ text: txt, mode, targetLang }))
-        );
+        const results = await handleBatchTranslate(texts, mode, targetLang);
         sendResponse({ results });
       })();
       return true;
@@ -567,11 +680,19 @@ chrome.runtime.onInstalled.addListener(async () => {
       contexts: ['all']
     });
 
-    // 1. Translate full page with continuous auto-translate
+    // 1. Translate current page only (single page)
     chrome.contextMenus.create({
       parentId: 'neural-main-menu',
-      id: 'neural-menu-translate-page',
-      title: 'ترجمة كامل الصفحة (مستمر مع التمرير والروابط)',
+      id: 'neural-menu-translate-single-page',
+      title: 'ترجمة كامل الصفحة الحالية فقط (صفحة واحدة)',
+      contexts: ['all']
+    });
+
+    // 2. Persistent continuous auto-translate across scroll and links
+    chrome.contextMenus.create({
+      parentId: 'neural-main-menu',
+      id: 'neural-menu-toggle-site-auto',
+      title: 'الترجمة المستمرة (Auto-Translate) لهذا الموقع دائماً',
       contexts: ['all']
     });
 
@@ -583,13 +704,7 @@ chrome.runtime.onInstalled.addListener(async () => {
       contexts: ['all']
     });
 
-    // 3. Toggle persistent site auto-translate
-    chrome.contextMenus.create({
-      parentId: 'neural-main-menu',
-      id: 'neural-menu-toggle-site-auto',
-      title: 'تفعيل الترجمة التلقائية لهذا الموقع دائماً',
-      contexts: ['all']
-    });
+
 
     // Separator
     chrome.contextMenus.create({
@@ -644,8 +759,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!tab?.id) return;
 
   switch (info.menuItemId) {
-    case 'neural-menu-translate-page':
-      await safeSendMessage(tab.id, { action: 'TRIGGER_PAGE_TRANSLATE' });
+    case 'neural-menu-translate-single-page':
+      await safeSendMessage(tab.id, { action: 'TRIGGER_SINGLE_PAGE_TRANSLATE' });
       break;
     case 'neural-menu-translate-section':
       await safeSendMessage(tab.id, { action: 'TRIGGER_TRANSLATE_SECTION' });

@@ -801,7 +801,7 @@
     if (isPageTranslating) {
       statusMsg = 'جارٍ الترجمة الفورية...';
     } else if (isAutoTranslateActive) {
-      statusMsg = `الترجمة التلقائية نشطة <span class="nt-page-bar-badge">${currentHostname || 'مستمر'}</span>`;
+      statusMsg = `الترجمة المستمرة (Auto-Translate) نشطة <span class="nt-page-bar-badge">${currentHostname || 'مستمر'}</span>`;
     } else {
       statusMsg = `تمت ترجمة ${activeReplacements.length || 'كامل'} فقرات`;
     }
@@ -1103,10 +1103,13 @@
             res.results.forEach((item, idx) => {
               const node = batchNodes[idx];
               if (node && item && item.text && node.parentNode) {
-                node.nodeValue = item.text;
-                translatedNodesSet.add(node);
-                if (node.parentElement && !node.parentElement.getAttribute('dir')) {
-                  node.parentElement.setAttribute('dir', 'auto');
+                const isActuallyTranslated = item.text.trim() !== rawTexts[idx].trim();
+                if (isActuallyTranslated) {
+                  node.nodeValue = item.text;
+                  translatedNodesSet.add(node);
+                  if (node.parentElement && !node.parentElement.getAttribute('dir')) {
+                    node.parentElement.setAttribute('dir', 'auto');
+                  }
                 }
               }
             });
@@ -1264,6 +1267,9 @@
     } else if (request.action === 'TOGGLE_SITE_AUTO_TRANSLATE') {
       enableSiteAutoTranslate(!isAutoTranslateActive, true);
       sendResponse({ status: 'ok', isAutoTranslateActive });
+    } else if (request.action === 'TRIGGER_SINGLE_PAGE_TRANSLATE') {
+      translateFullPage();
+      sendResponse({ status: 'started', mode: 'single-page' });
     } else if (request.action === 'TRIGGER_PAGE_TRANSLATE') {
       enableSiteAutoTranslate(true, true);
       sendResponse({ status: 'started', isAutoTranslateActive: true });
