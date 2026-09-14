@@ -511,7 +511,9 @@
   let selectionTimeout = null;
 
   document.addEventListener('mouseup', (e) => {
-    if (hostEl && e.composedPath().includes(hostEl)) return;
+    const path = e.composedPath ? e.composedPath() : [];
+    if (hostEl && (path.includes(hostEl) || (shadow && path.includes(shadow)) || path.some(el => el.id === 'neural-translate-host'))) return;
+    if (tooltip && tooltip.classList.contains('visible')) return;
 
     clearTimeout(selectionTimeout);
     selectionTimeout = setTimeout(() => {
@@ -534,6 +536,11 @@
   });
 
   function handleSelectionChange(e) {
+    if (tooltip && tooltip.classList.contains('visible')) {
+      hideMicroPill();
+      return;
+    }
+
     const selection = window.getSelection();
     const text = selection ? selection.toString().trim() : '';
 
@@ -589,6 +596,9 @@
     if (tooltip) {
       tooltip.classList.remove('visible');
     }
+    if (microPill) {
+      microPill.style.display = '';
+    }
   }
 
   // --- Show Tooltip and Request Translation ---
@@ -609,6 +619,10 @@
     currentSelectionText = text;
 
     hideMicroPill();
+    if (microPill) {
+      microPill.classList.remove('visible');
+      microPill.style.display = 'none';
+    }
     initShadowHost();
 
     const rectToUse = (currentSelectionRange ? currentSelectionRange.getBoundingClientRect() : null) || lastValidRect;
