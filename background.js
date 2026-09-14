@@ -199,7 +199,7 @@ async function getCustomApiConfig() {
   });
 }
 
-async function queryCustomApi(text, config) {
+async function queryCustomApi(text, config, customSystemPrompt = null) {
   if (!config || !config.apiKey) {
     throw new Error('مفتاح API غير معرف في الإعدادات.');
   }
@@ -223,7 +223,7 @@ async function queryCustomApi(text, config) {
       body: JSON.stringify({
         model: model,
         max_tokens: 1500,
-        system: SYSTEM_PROMPT,
+        system: (customSystemPrompt || SYSTEM_PROMPT),
         messages: [{ role: 'user', content: text }]
       }),
       signal: controller.signal
@@ -239,7 +239,7 @@ async function queryCustomApi(text, config) {
         model: model,
         temperature: 0.1,
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: (customSystemPrompt || SYSTEM_PROMPT) },
           { role: 'user', content: text }
         ]
       }),
@@ -269,14 +269,14 @@ async function queryCustomApi(text, config) {
 }
 
 // --- Configurable Local Model Caller ---
-async function queryLocalEngine(text) {
+async function queryLocalEngine(text, customSystemPrompt = null) {
   const baseUrl = await getLocalServerBaseUrl();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 25000);
 
   const payload = {
     messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: (customSystemPrompt || SYSTEM_PROMPT) },
       { role: 'user', content: text }
     ],
     temperature: 0.1,
@@ -516,6 +516,7 @@ async function handleBatchTranslate(texts, mode = 'auto', targetLang = 'ar') {
 }
 
 async function processStructuredSubBatch(batchIndices, texts, results, mode, targetLang) {
+  const BATCH_SYSTEM_PROMPT = 'You are an elite bilingual translator. Translate each numbered item into natural modern Arabic. You MUST maintain the exact bracket numbering ([0], [1], [2], etc.) at the start of each line. Output ONLY the numbered items.';
   const items = batchIndices.map((origIdx, localIdx) => '[' + localIdx + '] ' + texts[origIdx].trim());
   const structuredPrompt = items.join("\n");
 
@@ -526,7 +527,7 @@ async function processStructuredSubBatch(batchIndices, texts, results, mode, tar
   const customConfig = await getCustomApiConfig();
   if ((mode === 'custom' || (mode === 'auto' && customConfig?.enabled)) && customConfig?.apiKey) {
     try {
-      translatedRaw = await queryCustomApi(structuredPrompt, customConfig);
+      translatedRaw = await queryCustomApi(structuredPrompt, customConfig, BATCH_SYSTEM_PROMPT);
       if (translatedRaw) {
         usedEngine = 'API (' + (customConfig.model || 'Custom') + ')';
         success = true;
@@ -538,7 +539,7 @@ async function processStructuredSubBatch(batchIndices, texts, results, mode, tar
     const isHealthy = await checkLocalHealth();
     if (isHealthy) {
       try {
-        translatedRaw = await queryLocalEngine(structuredPrompt);
+        translatedRaw = await queryLocalEngine(structuredPrompt, BATCH_SYSTEM_PROMPT);
         if (translatedRaw) {
           usedEngine = 'Gemma-4 (GPU)';
           success = true;
@@ -547,15 +548,16 @@ async function processStructuredSubBatch(batchIndices, texts, results, mode, tar
     }
   }
 
-  // Parse structured response
+  // Parse structured response with flexible numbering regex ([0], 0., 0))
   const parsedMap = new Map();
   if (success && translatedRaw) {
     const lines = translatedRaw.split("\n");
     for (const line of lines) {
-      const match = line.match(/^\s*\[(\d+)\]\s*(.*)$/);
+      const match = line.match(/^\s*(?:\[(\d+)\]|(\d+)[\.\)]|#(\d+))\s*(.*)$/);
       if (match) {
-        const localIdx = parseInt(match[1], 10);
-        const transText = match[2].trim();
+        const numStr = match[1] || match[2] || match[3];
+        const localIdx = parseInt(numStr, 10);
+        const transText = (match[4] || '').trim();
         if (transText) {
           parsedMap.set(localIdx, transText);
         }
@@ -691,7 +693,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     chrome.contextMenus.create({
       parentId: 'neural-main-menu',
       id: 'neural-menu-translate-single-page',
-      title: 'ترجمة كامل الصفحة الحالية فقط (صفحة واحدة)',
+      title: 'ترجمة الصفحة',
       contexts: ['all']
     });
 
@@ -699,7 +701,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     chrome.contextMenus.create({
       parentId: 'neural-main-menu',
       id: 'neural-menu-toggle-site-auto',
-      title: 'الترجمة المستمرة (Auto-Translate) لهذا الموقع دائماً',
+      title: 'الترجمة التلقائية',
       contexts: ['all']
     });
 
@@ -707,7 +709,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     chrome.contextMenus.create({
       parentId: 'neural-main-menu',
       id: 'neural-menu-translate-section',
-      title: 'ترجمة هذه الفقرة أو المنطقة في مكانها',
+      title: 'ترجمة هذه الفقرة',
       contexts: ['all']
     });
 
@@ -725,7 +727,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     chrome.contextMenus.create({
       parentId: 'neural-main-menu',
       id: 'neural-menu-selection-replace',
-      title: 'استبدال النص المحدد بمكانه مباشرة',
+      title: 'استبدال النص',
       contexts: ['selection']
     });
 
@@ -733,7 +735,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     chrome.contextMenus.create({
       parentId: 'neural-main-menu',
       id: 'neural-menu-selection-tooltip',
-      title: 'ترجمة النص المحدد في نافذة عائمة',
+      title: 'ترجمة النص',
       contexts: ['selection']
     });
 
@@ -741,7 +743,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     chrome.contextMenus.create({
       parentId: 'neural-main-menu',
       id: 'neural-menu-revert',
-      title: 'استعادة النصوص الأصلية للصفحة',
+      title: 'استعادة الأصل',
       contexts: ['all']
     });
 
@@ -749,7 +751,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     chrome.contextMenus.create({
       parentId: 'neural-main-menu',
       id: 'neural-menu-open-reader',
-      title: 'فتح قارئ ومترجم المستندات (PDF / Word / EPUB)',
+      title: 'قارئ المستندات',
       contexts: ['all']
     });
   });
