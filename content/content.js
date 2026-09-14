@@ -761,7 +761,11 @@
     }
 
     isPageTranslating = false;
-    updatePageFloatingBar();
+    if (actuallyReplacedCount === 0 && textNodes.length > 0) {
+      updatePageFloatingBar('تعذر الاتصال بالموديل · اضغط لإعادة المحاولة');
+    } else {
+      updatePageFloatingBar('تمت ترجمة ' + actuallyReplacedCount + ' فقرة');
+    }
   }
 
   // --- Hover Revert Bubble ---
@@ -870,14 +874,7 @@
     }
 
     if (enabled) {
-      // 1. Instant scan of existing DOM
       translateFullPage();
-
-      // 2. Delayed scans to catch hydrated content (React / Next.js / Docs)
-      setTimeout(translateFullPage, 500);
-      setTimeout(translateFullPage, 1500);
-
-      // 3. Start observing infinite scroll & dynamic element additions
       startDynamicObserver();
       hookSpaNavigation();
     } else {
@@ -891,30 +888,33 @@
     if (dynamicObserver) return;
 
     dynamicObserver = new MutationObserver((mutations) => {
-      if (!isAutoTranslateActive) return;
+      if (!isAutoTranslateActive || isPageTranslating) return;
 
       for (const mutation of mutations) {
-        if (mutation.target && (mutation.target.closest?.('#neural-translate-host') || mutation.target.id === 'neural-translate-host')) {
+        if (mutation.target && (mutation.target.closest?.('#neural-translate-host') || mutation.target.id === 'neural-translate-host' || mutation.target.closest?.('.neural-in-place-replaced'))) {
           continue;
         }
 
         if (mutation.type === 'childList') {
-          mutation.addedNodes.forEach(node => collectNewTextNodes(node));
-        } else if (mutation.type === 'characterData') {
-          collectNewTextNodes(mutation.target);
+          mutation.addedNodes.forEach(node => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              if (node.id === 'neural-translate-host' || node.classList?.contains('neural-in-place-replaced')) return;
+            }
+            collectNewTextNodes(node);
+          });
         }
       }
 
       if (pendingDynamicNodes.size > 0) {
         clearTimeout(dynamicDebounceTimer);
-        dynamicDebounceTimer = setTimeout(processPendingDynamicNodes, 250);
+        dynamicDebounceTimer = setTimeout(processPendingDynamicNodes, 400);
       }
     });
 
     dynamicObserver.observe(document.body || document.documentElement, {
       childList: true,
       subtree: true,
-      characterData: true
+      characterData: false
     });
   }
 
@@ -1042,9 +1042,11 @@
   }
 
   // --- Full Page Scanner ---
+  let actuallyReplacedCount = 0;
   async function translateFullPage() {
     if (isPageTranslating) return;
     isPageTranslating = true;
+    actuallyReplacedCount = 0;
     updatePageFloatingBar();
 
     const textNodes = [];
@@ -1140,8 +1142,9 @@
               if (node && item && item.text && node.parentNode) {
                 const isActuallyTranslated = item.text.trim() !== rawTexts[idx].trim();
                 if (isActuallyTranslated) {
-                  node.nodeValue = item.text;
                   translatedNodesSet.add(node);
+                  node.nodeValue = item.text;
+                  actuallyReplacedCount++;
                   if (node.parentElement && !node.parentElement.getAttribute('dir')) {
                     node.parentElement.setAttribute('dir', 'auto');
                   }

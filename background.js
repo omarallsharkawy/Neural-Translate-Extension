@@ -136,23 +136,22 @@ let lastHealthCheckTime = 0;
 
 async function checkLocalHealth(force = false) {
   const now = Date.now();
-  if (!force && cachedLocalHealthy !== null && now - lastHealthCheckTime < 4000) {
-    return cachedLocalHealthy;
+  if (!force && cachedLocalHealthy === true && now - lastHealthCheckTime < 4000) {
+    return true;
   }
   lastHealthCheckTime = now;
   try {
     const baseUrl = await getLocalServerBaseUrl();
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1500);
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
 
-    // Try /health first (llama-server), fallback to /v1/models (LM Studio, Ollama, vLLM)
     let res = await fetch(`${baseUrl}/health`, { method: 'GET', signal: controller.signal }).catch(() => null);
     if (!res || !res.ok) {
       res = await fetch(`${baseUrl}/v1/models`, { method: 'GET', signal: controller.signal }).catch(() => null);
     }
     clearTimeout(timeoutId);
 
-    cachedLocalHealthy = res && res.ok;
+    cachedLocalHealthy = Boolean(res && res.ok);
     return cachedLocalHealthy;
   } catch (err) {
     cachedLocalHealthy = false;
@@ -331,22 +330,35 @@ async function queryFastCloud(text, targetLang = 'ar') {
 
 async function queryFastCloudSingle(text, targetLang = 'ar') {
   const clean = preprocessSlang(text);
-  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(clean)}`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(clean)}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
 
-  const res = await fetch(url, { signal: controller.signal });
-  clearTimeout(timeoutId);
+    if (res.ok) {
+      const parsed = await res.json();
+      if (Array.isArray(parsed) && Array.isArray(parsed[0])) {
+        const translated = parsed[0].map(item => item[0]).join('');
+        if (translated) return translated;
+      }
+    }
+  } catch (e) {}
 
-  if (!res.ok) {
-    throw new Error(`Cloud translation failed: ${res.status}`);
-  }
+  // MyMemory Alternative Cloud Fallback if Google is rate-limited
+  try {
+    const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(clean.slice(0, 450))}&langpair=en|${targetLang}`;
+    const mmRes = await fetch(mmUrl, { signal: AbortSignal.timeout(5000) });
+    if (mmRes.ok) {
+      const mmData = await mmRes.json();
+      const mmText = mmData?.responseData?.translatedText;
+      if (mmText && mmText.toLowerCase() !== clean.toLowerCase()) {
+        return mmText;
+      }
+    }
+  } catch (e) {}
 
-  const parsed = await res.json();
-  if (Array.isArray(parsed) && Array.isArray(parsed[0])) {
-    const translated = parsed[0].map(item => item[0]).join('');
-    return translated || text;
-  }
   return text;
 }
 
@@ -394,7 +406,7 @@ async function handleTranslate({ text, mode = 'auto', targetLang = 'ar', bypassC
   }
 
   // Priority 2: Configurable Local GPU Engine (Gemma-4, LM Studio, Ollama)
-  if (!success && (mode === 'ai' || mode === 'auto')) {
+  if (!success && (mode === 'ai' || mode === 'auto' || mode === 'custom')) {
     const isHealthy = await checkLocalHealth();
     if (isHealthy) {
       try {
@@ -562,7 +574,7 @@ async function processStructuredSubBatch(batchIndices, texts, results, mode, tar
     } catch (e) {}
   }
 
-  if (!success && (mode === 'ai' || mode === 'auto')) {
+  if (!success && (mode === 'ai' || mode === 'auto' || mode === 'custom')) {
     const isHealthy = await checkLocalHealth();
     if (isHealthy) {
       try {
