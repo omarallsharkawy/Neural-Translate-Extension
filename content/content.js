@@ -448,6 +448,12 @@
       showTooltipForCurrentSelection();
     });
 
+    microPill.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      showTooltipForCurrentSelection();
+    });
+
     // Tooltip Card
     tooltip = document.createElement('div');
     tooltip.className = 'nt-card';
@@ -499,7 +505,11 @@
 
   document.addEventListener('mousedown', (e) => {
     if (e.button === 2) return;
-    if (hostEl && e.composedPath().includes(hostEl)) return;
+    // Do not dismiss if clicking inside shadow root or extension host
+    const path = e.composedPath ? e.composedPath() : [];
+    if (hostEl && (path.includes(hostEl) || (shadow && path.includes(shadow)) || path.some(el => el.id === 'neural-translate-host'))) {
+      return;
+    }
 
     hideMicroPill();
     if (tooltip && tooltip.classList.contains('visible')) {

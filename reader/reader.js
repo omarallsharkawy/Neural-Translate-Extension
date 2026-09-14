@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnExportMenu = document.getElementById('btn-export-menu');
   const exportDropdown = document.getElementById('export-dropdown');
   const btnExportCopy = document.getElementById('btn-export-copy');
+  const btnExportPdf = document.getElementById('btn-export-pdf');
   const btnExportMd = document.getElementById('btn-export-md');
   const btnExportTxt = document.getElementById('btn-export-txt');
 
@@ -600,9 +601,15 @@ Bidirectional layout isolation and context-aware natural language translation br
     });
   });
 
+  btnExportPdf?.addEventListener('click', () => exportAsPdf());
   btnExportMd.addEventListener('click', () => downloadDoc('md'));
   btnExportTxt.addEventListener('click', () => downloadDoc('txt'));
 
+    // Clean PDF Export / Print
+  function exportAsPdf() {
+    if (paragraphs.length === 0) return;
+    window.print();
+  }
   function downloadDoc(ext) {
     if (paragraphs.length === 0) return;
     const text = paragraphs.map(p => p.translated || p.source).join('\n\n');

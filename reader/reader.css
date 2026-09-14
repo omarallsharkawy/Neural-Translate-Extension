@@ -692,3 +692,47 @@ html, body {
   border-radius: 2px;
 }
 
+
+
+/* Clean Print / PDF Export Styling */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+  }
+  .reader-header,
+  .progress-bar-container,
+  .source-column,
+  .column-divider,
+  .column-header,
+  .card-meta-bar,
+  .card-actions,
+  .empty-state {
+    display: none !important;
+  }
+  .reader-workspace {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .target-column {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .column-scroll {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+  .reader-card {
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    padding: 16px 0 !important;
+    page-break-inside: avoid !important;
+  }
+  .para-text-arabic {
+    color: #111827 !important;
+    font-size: 15pt !important;
+    line-height: 1.8 !important;
+  }
+}
