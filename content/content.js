@@ -40,12 +40,20 @@
     if (data?.preferredMode) preferredMode = data.preferredMode;
     if (data?.autoPillEnabled !== undefined) autoPillEnabled = data.autoPillEnabled;
 
+  function isDomainMatched(hostname, domains) {
+    if (!hostname || !Array.isArray(domains)) return false;
+    return domains.some(d => hostname === d || hostname.endsWith("." + d) || d.endsWith("." + hostname));
+  }
     const domains = data?.autoTranslateDomains || [];
     const isGlobal = !!data?.globalAutoTranslate;
-    const isSiteWhitelisted = currentHostname && domains.includes(currentHostname);
+    const isSiteWhitelisted = isDomainMatched(currentHostname, domains);
 
     if (isGlobal || isSiteWhitelisted) {
-      enableSiteAutoTranslate(true, false);
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", () => enableSiteAutoTranslate(true, false));
+      } else {
+        enableSiteAutoTranslate(true, false);
+      }
     }
   });
 
@@ -748,28 +756,36 @@
   }
 
   function revertAllReplacements() {
+    // 1. Restore all in-place replacements
     [...activeReplacements].forEach(revertSingleReplacement);
     activeReplacements = [];
 
+    // 2. Restore all full-page text nodes to original values
     if (fullPageOriginalMap.size > 0) {
       for (const [node, originalVal] of fullPageOriginalMap.entries()) {
         if (node && node.parentNode) {
           node.nodeValue = originalVal;
+          if (node.parentElement && node.parentElement.hasAttribute("data-content")) {
+            node.parentElement.setAttribute("data-content", originalVal);
+          }
         }
       }
       fullPageOriginalMap.clear();
     }
 
+    // 3. Reset state & stop observer so it does not re-translate English
     isPageTranslating = false;
-    setTimeout(() => {
-      if (isAutoTranslateActive) translateVisibleViewport();
-    }, 400);
+    isAutoTranslateActive = false;
+    stopDynamicObserver();
 
-    if (actuallyReplacedCount === 0 && textNodes.length > 0) {
-      updatePageFloatingBar('تعذر الاتصال بالموديل · اضغط لإعادة المحاولة');
-    } else {
-      updatePageFloatingBar('تمت ترجمة ' + actuallyReplacedCount + ' فقرة');
-    }
+    // 4. Update floating bar
+    updatePageFloatingBar("تمت استعادة النص الأصلي");
+    setTimeout(() => {
+      if (pageToolbar && !isPageTranslating && !isAutoTranslateActive) {
+        pageToolbar.remove();
+        pageToolbar = null;
+      }
+    }, 1800);
   }
 
   // --- Hover Revert Bubble ---
