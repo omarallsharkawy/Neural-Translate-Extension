@@ -761,6 +761,10 @@
     }
 
     isPageTranslating = false;
+    setTimeout(() => {
+      if (isAutoTranslateActive) translateVisibleViewport();
+    }, 400);
+
     if (actuallyReplacedCount === 0 && textNodes.length > 0) {
       updatePageFloatingBar('تعذر الاتصال بالموديل · اضغط لإعادة المحاولة');
     } else {
@@ -888,7 +892,7 @@
     if (dynamicObserver) return;
 
     dynamicObserver = new MutationObserver((mutations) => {
-      if (!isAutoTranslateActive || isPageTranslating) return;
+      if (!isAutoTranslateActive) return;
 
       for (const mutation of mutations) {
         if (mutation.target && (mutation.target.closest?.('#neural-translate-host') || mutation.target.id === 'neural-translate-host' || mutation.target.closest?.('.neural-in-place-replaced'))) {
@@ -976,6 +980,10 @@
 
   async function processPendingDynamicNodes() {
     if (pendingDynamicNodes.size === 0) return;
+    if (isPageTranslating) {
+      setTimeout(processPendingDynamicNodes, 250);
+      return;
+    }
 
     const nodesArray = Array.from(pendingDynamicNodes).filter(n => document.contains(n) && !translatedNodesSet.has(n));
     pendingDynamicNodes.clear();
@@ -991,7 +999,7 @@
         fullPageOriginalMap.set(node, node.nodeValue);
       }
       const len = node.nodeValue.length;
-      if (curLen + len > 800 && curBatch.length > 0) {
+      if (curLen + len > 400 && curBatch.length > 0) {
         batches.push(curBatch);
         curBatch = [node];
         curLen = len;
@@ -1027,6 +1035,9 @@
 
     window.addEventListener('popstate', notifyNavigation);
     window.addEventListener('hashchange', notifyNavigation);
+    document.addEventListener('turbo:render', notifyNavigation);
+    document.addEventListener('turbo:frame-render', notifyNavigation);
+    document.addEventListener('pjax:end', notifyNavigation);
 
     const origPushState = history.pushState;
     history.pushState = function() {
@@ -1071,22 +1082,16 @@
       }
     }
 
-    // Prioritize main content: H1, H2, H3, P, Article, and visible viewport nodes first
+    // Natural visual flow: Viewport visible elements first (Navbar, Sidebar, Main Content)
     textNodes.sort((a, b) => {
-      const blockA = a.parentElement?.closest("h1, h2, h3, p, article");
-      const blockB = b.parentElement?.closest("h1, h2, h3, p, article");
-      const isImportantA = blockA ? 0 : 1;
-      const isImportantB = blockB ? 0 : 1;
-      if (isImportantA !== isImportantB) return isImportantA - isImportantB;
-
       let aInVp = 1, bInVp = 1;
       try {
         const ra = a.parentElement?.getBoundingClientRect();
-        if (ra && ra.bottom >= -50 && ra.top <= window.innerHeight + 150) aInVp = 0;
+        if (ra && ra.bottom >= -50 && ra.top <= window.innerHeight + 100) aInVp = 0;
       } catch(e) {}
       try {
         const rb = b.parentElement?.getBoundingClientRect();
-        if (rb && rb.bottom >= -50 && rb.top <= window.innerHeight + 150) bInVp = 0;
+        if (rb && rb.bottom >= -50 && rb.top <= window.innerHeight + 100) bInVp = 0;
       } catch(e) {}
       return aInVp - bInVp;
     });
@@ -1103,7 +1108,7 @@
 
     for (const node of textNodes) {
       const len = node.nodeValue.length;
-      if (currentBatchChars + len > 800 && currentBatch.length > 0) {
+      if (currentBatchChars + len > 400 && currentBatch.length > 0) {
         batches.push(currentBatch);
         currentBatch = [node];
         currentBatchChars = len;
@@ -1145,8 +1150,13 @@
                   translatedNodesSet.add(node);
                   node.nodeValue = item.text;
                   actuallyReplacedCount++;
-                  if (node.parentElement && !node.parentElement.getAttribute('dir')) {
-                    node.parentElement.setAttribute('dir', 'auto');
+                  if (node.parentElement) {
+                    if (node.parentElement.hasAttribute('data-content')) {
+                      node.parentElement.setAttribute('data-content', item.text);
+                    }
+                    if (!node.parentElement.getAttribute('dir')) {
+                      node.parentElement.setAttribute('dir', 'auto');
+                    }
                   }
                 }
               }

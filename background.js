@@ -490,6 +490,7 @@ async function safeSendMessage(tabId, message) {
 
 // --- High-Efficiency Structured Batch Translator ---
 async function handleBatchTranslate(texts, mode = 'auto', targetLang = 'ar') {
+  console.log("[SW] handleBatchTranslate called with", texts.length, "texts, mode=", mode);
   const results = new Array(texts.length);
 
   // 1. Group by unique text to avoid translating duplicate strings
@@ -640,6 +641,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           return;
         }
         const results = await handleBatchTranslate(texts, mode, targetLang);
+        console.log("[SW] handleBatchTranslate finished, returning results count:", results.length);
         sendResponse({ results });
       })();
       return true;
