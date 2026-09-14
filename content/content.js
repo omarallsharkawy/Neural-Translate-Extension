@@ -27,6 +27,41 @@
   let preferredMode = 'auto';
   let autoPillEnabled = true;
 
+  // --- PDF Viewer Detection & Smart Bridge ---
+  const isPdfDocument = (document.contentType === 'application/pdf') || (/\.pdf($|[?#])/i.test(window.location.href));
+  if (isPdfDocument) {
+    showPdfReaderBridge();
+  }
+
+  function showPdfReaderBridge() {
+    initShadowHost();
+    const pdfBanner = document.createElement('div');
+    pdfBanner.className = 'nt-page-bar';
+    pdfBanner.style.cssText = 'position:fixed!important;bottom:24px!important;right:24px!important;z-index:2147483647!important;display:flex!important;align-items:center!important;gap:12px!important;background:#1c1916!important;border:1px solid #b7825e!important;border-radius:4px!important;padding:10px 18px!important;box-shadow:0 12px 36px rgba(0,0,0,0.85)!important;pointer-events:auto!important;direction:rtl!important;font-family:system-ui,sans-serif!important;';
+    pdfBanner.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#e8decd;">
+        <span style="width:8px;height:8px;border-radius:50%;background:#d0a381;display:inline-block;"></span>
+        <span>مستند PDF مكتشف · هل ترغب في ترجمته وقراءته؟</span>
+      </div>
+      <button class="nt-action-btn" id="nt-open-pdf-btn" style="background:#1d9bf0!important;color:#fff!important;border:none!important;border-radius:3px!important;padding:6px 14px!important;font-size:12px!important;font-weight:600!important;cursor:pointer!important;">
+        <span>فتح في Neural Reader للترجمة</span>
+      </button>
+      <button class="nt-btn-icon" id="nt-close-pdf-banner" title="إغلاق" style="background:transparent!important;border:none!important;color:#8d8171!important;cursor:pointer!important;font-size:14px!important;">✕</button>
+    `;
+
+    shadow.appendChild(pdfBanner);
+
+    pdfBanner.querySelector('#nt-open-pdf-btn')?.addEventListener('click', () => {
+      const readerUrl = chrome.runtime.getURL('reader/reader.html?pdf=' + encodeURIComponent(window.location.href));
+      window.open(readerUrl, '_blank');
+    });
+
+    pdfBanner.querySelector('#nt-close-pdf-banner')?.addEventListener('click', () => {
+      pdfBanner.remove();
+    });
+  }
+
+
   // Auto-Translate State
   const currentHostname = window.location.hostname;
   let isAutoTranslateActive = false;

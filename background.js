@@ -839,6 +839,16 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     case 'neural-menu-open-reader':
       chrome.tabs.create({ url: chrome.runtime.getURL('reader/reader.html') });
       break;
+    case 'neural-menu-translate-pdf-link':
+      {
+        const targetUrl = info.linkUrl || info.pageUrl || (tab && tab.url);
+        if (targetUrl) {
+          chrome.tabs.create({ url: chrome.runtime.getURL('reader/reader.html?pdf=' + encodeURIComponent(targetUrl)) });
+        } else {
+          chrome.tabs.create({ url: chrome.runtime.getURL('reader/reader.html') });
+        }
+      }
+      break;
   }
 });
 

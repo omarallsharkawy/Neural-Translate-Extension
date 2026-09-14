@@ -78,6 +78,37 @@ Bidirectional layout isolation and context-aware natural language translation br
   }
   probeEngine();
 
+  // Automatic PDF & Document URL Loader (e.g. ?file=... or ?url=...)
+  const urlParams = new URLSearchParams(window.location.search);
+  const targetDocUrl = urlParams.get('file') || urlParams.get('url') || urlParams.get('pdf');
+  if (targetDocUrl) {
+    loadDocFromUrl(targetDocUrl);
+  }
+
+  async function loadDocFromUrl(url) {
+    try {
+      docTitle.textContent = 'جارٍ تحميل المستند...';
+      const filename = decodeURIComponent(url.split('/').pop().split('?')[0]) || 'document.pdf';
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('فشل جلب الملف: ' + response.statusText);
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      if (filename.toLowerCase().endsWith('.docx')) {
+        parseDocxContent(arrayBuffer, filename);
+      } else if (filename.toLowerCase().endsWith('.epub')) {
+        parseEpubContent(arrayBuffer, filename);
+      } else {
+        // Default to PDF parser
+        parsePdfContent(arrayBuffer, filename);
+      }
+    } catch (err) {
+      alert('تعذر فتح المستند تلقائياً: ' + err.message);
+      docTitle.textContent = 'لم يتم تحميل مستند';
+    }
+  }
+
+
   // 2. Drag & Drop
   dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
