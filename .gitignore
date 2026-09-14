@@ -1,0 +1,14 @@
+# Large binaries & weights
+bin/llama-server
+bin/llama-server.exe
+models/*.gguf
+models/*.bin
+
+# System & Editor files
+.DS_Store
+Thumbs.db
+*.swp
+*~
+*.tmp
+node_modules/
+

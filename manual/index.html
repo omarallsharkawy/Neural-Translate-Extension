@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neural Translate - دليل الاستخدام والتوثيق الهندسي</title>
+  <style>
+    :root {
+      --ground: #14110f;
+      --panel: #1c1916;
+      --well: #100e0c;
+      --text: #e8decd;
+      --muted: #b4a99a;
+      --faint: #8d8171;
+      --copper: #b7825e;
+      --copper-ink: #d0a381;
+      --line: rgba(232, 222, 205, 0.14);
+      --line-strong: rgba(232, 222, 205, 0.32);
+      --action: #1d9bf0;
+      --display: "Bodoni Moda", "Amiri", Georgia, serif;
+      --sans: "Manrope", "Noto Sans Arabic", system-ui, -apple-system, sans-serif;
+      --mono: "JetBrains Mono", ui-monospace, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background-color: var(--ground);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.8;
+      direction: rtl;
+    }
+
+    /* Container */
+    .manual-layout {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 48px 24px 100px;
+    }
+
+    /* Masthead */
+    .masthead {
+      border-bottom: 1px solid var(--line-strong);
+      padding-bottom: 32px;
+      margin-bottom: 48px;
+    }
+    .kicker {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--copper);
+      margin-bottom: 8px;
+      display: block;
+    }
+    h1.hero-title {
+      font-family: var(--display);
+      font-size: clamp(32px, 5vw, 44px);
+      font-weight: 500;
+      line-height: 1.25;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+    .lead-text {
+      font-size: 17px;
+      color: var(--muted);
+      max-width: 760px;
+      line-height: 1.7;
+    }
+
+    /* Sections */
+    section.manual-section {
+      margin-bottom: 56px;
+      padding-top: 24px;
+      border-top: 1px solid var(--line);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .section-num {
+      font-family: var(--mono);
+      font-size: 14px;
+      color: var(--copper);
+      font-weight: 600;
+    }
+    h2.section-title {
+      font-family: var(--display);
+      font-size: 22px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    p { margin-bottom: 16px; color: var(--text); }
+    p.dim { color: var(--muted); }
+
+    /* Specification Strip */
+    .spec-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin: 24px 0;
+    }
+    .spec-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      padding: 14px 16px;
+    }
+    .spec-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--faint);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+      display: block;
+    }
+    .spec-val {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--copper-ink);
+    }
+
+    /* Code Blocks */
+    pre, code {
+      font-family: var(--mono);
+      font-size: 13px;
+      direction: ltr;
+      text-align: left;
+    }
+    pre {
+      background: var(--well);
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      padding: 16px;
+      overflow-x: auto;
+      margin: 16px 0 24px;
+      line-height: 1.6;
+      color: #38BDF8;
+    }
+    code.inline {
+      background: var(--well);
+      border: 1px solid var(--line);
+      padding: 2px 6px;
+      border-radius: 2px;
+      color: var(--copper-ink);
+    }
+
+    /* Feature Lists */
+    ul.feature-list {
+      list-style: none;
+      margin: 16px 0 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    ul.feature-list li {
+      position: relative;
+      padding-right: 20px;
+      color: var(--text);
+    }
+    ul.feature-list li::before {
+      content: "§";
+      position: absolute;
+      right: 0;
+      color: var(--copper);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    /* Callout Card */
+    .callout-box {
+      background: var(--panel);
+      border-right: 3px solid var(--copper);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      border-left: 1px solid var(--line);
+      border-radius: 2px;
+      padding: 16px 20px;
+      margin: 20px 0;
+    }
+    .callout-box h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--copper-ink);
+      margin-bottom: 6px;
+    }
+    .callout-box p {
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 13.5px;
+    }
+
+    /* Keyboard Shortcuts Table */
+    table.editorial-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 13.5px;
+    }
+    table.editorial-table th, table.editorial-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: right;
+    }
+    table.editorial-table th {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--faint);
+      background: var(--well);
+    }
+    table.editorial-table td {
+      background: var(--panel);
+    }
+  </style>
+</head>
+<body>
+  <div class="manual-layout">
+    <!-- Header -->
+    <header class="masthead">
+      <span class="kicker">DOCUMENTATION &amp; SPECIFICATION</span>
+      <h1 class="hero-title">Neural Translate · دليل الاستخدام والتشغيل</h1>
+      <p class="lead-text">
+        إضافة متصفح هجينة عالية الأداء (Chromium / Brave / Manifest V3) تدمج نماذج الذكاء الاصطناعي المحلية (Gemma-4 على GPU بدون أي اعتماديات رسومية) ومزودات الـ API السحابية (DeepSeek و GLM و OpenAI و Claude) مع عزل لغوي فوري BiDi وقارئ كتب للمستندات (PDF و Word و EPUB و Markdown).
+      </p>
+    </header>
+
+    <!-- Spec Strip -->
+    <div class="spec-grid">
+      <div class="spec-card">
+        <span class="spec-label">المعمارية</span>
+        <span class="spec-val">Chromium MV3</span>
+      </div>
+      <div class="spec-card">
+        <span class="spec-label">محرك GPU المحلي</span>
+        <span class="spec-val">Gemma-4-E2B (Vulkan)</span>
+      </div>
+      <div class="spec-card">
+        <span class="spec-label">دعم الملفات</span>
+        <span class="spec-val">PDF, DOCX, EPUB, MD</span>
+      </div>
+      <div class="spec-card">
+        <span class="spec-label">نظام التصميم</span>
+        <span class="spec-val">Cinematic Editorial</span>
+      </div>
+    </div>
+
+    <!-- Section 1 -->
+    <section class="manual-section" id="local-ai">
+      <div class="section-header">
+        <span class="section-num">01</span>
+        <h2 class="section-title">تشغيل الموديل المحلي Gemma-4 بشكل مستقل تماماً (بدون X)</h2>
+      </div>
+      <p>
+        تم فصل خادم الذكاء الاصطناعي المحلي <code class="inline">llama-server</code> في خدمة نظام خلفية مستقلة باسم <code class="inline">neural-llama.service</code>. يعمل الموديل في الخلفية مستفيداً من تسريع Vulkan على كارت الشاشة Nvidia RTX 4060 دون تشغيل تطبيق X ودون فتح أي نوافذ رسومية.
+      </p>
+
+      <div class="callout-box">
+        <h3>معمارية تشغيل الموديل المحلي المستقلة (Standalone Local Daemon)</h3>
+        <p>يعمل محرك الذكاء الاصطناعي المحلي كخدمة خلفية مستقلة تماماً وخفيفة على كارت الشاشة (Nvidia GPU عبر Vulkan/CUDA) دون أي واجهات رسومية، ويوفر استجابة فورية للترجمة في أقل من 20ms دون استهلاك أي بيانات إنترنت.</p>
+      </div>
+
+      <p>أوامر التحكم في خدمة الموديل المحلي من الطرفية:</p>
+      <pre># التحقق من حالة الموديل واستهلاك الـ VRAM
+systemctl --user status neural-llama.service
+
+# إعادة تشغيل خدمة الموديل
+systemctl --user restart neural-llama.service
+
+# إيقاف خدمة الموديل
+systemctl --user stop neural-llama.service
+
+# بدء خدمة الموديل
+systemctl --user start neural-llama.service</pre>
+
+            <div class="callout-box" style="border-right-color: #38BDF8;">
+        <h3 style="color: #38BDF8;">دليل تشغيل Gemma-4 على نظام ويندوز (Windows Setup Guide)</h3>
+        <p>إذا كنت تستخدم نظام Windows وتريد تشغيل الموديل محلياً على جهازك دون إنترنت:</p>
+        <ol style="padding-right: 20px; color: var(--text); margin-top: 8px; font-size: 13px;">
+          <li><strong>تحميل ملف السيرفر:</strong> قم بتنزيل <code class="inline">llama-server.exe</code> (من إصدارات llama.cpp الرسمية مع دعم Vulkan أو CUDA) وضعه داخل مجلد <code class="inline">bin/</code> في المشروع.</li>
+          <li><strong>تحميل ملف الموديل:</strong> قم بتنزيل ملف الموديل بصيغة GGUF (مثلاً <code class="inline">gemma-4-E2B-it-Q4_K_M.gguf</code>) وضعه داخل مجلد <code class="inline">models/</code>.</li>
+          <li><strong>بدء التشغيل:</strong> انقر مرتين على ملف <code class="inline">run-local-gemma.bat</code> الموجود في المجلد الرئيسي للإضافة.</li>
+          <li>سيبدأ السيرفر فورياً على المنفذ <code class="inline">28491</code>، وستتعرف عليه الإضافة تلقائياً.</li>
+        </ol>
+        <p style="margin-top: 8px; font-size: 12.5px; color: var(--copper-ink);">
+          * بديل أسهل بنقرة واحدة على ويندوز: يمكنك فتح برنامج <strong>LM Studio</strong> أو <strong>Ollama</strong> وتشغيل أي موديل، ثم فتح إعدادات الإضافة (⚙️) واختيار القالب الجاهز لـ LM Studio أو Ollama.
+        </p>
+      </div>
+<p>فحص نقطة النهاية المباشرة للتأكد من استجابة السيرفر المحلي:</p>
+      <pre>curl -s http://127.0.0.1:28491/health</pre>
+    </section>
+
+    <!-- Section 2 -->
+    <section class="manual-section" id="custom-api">
+      <div class="section-header">
+        <span class="section-num">02</span>
+        <h2 class="section-title">ربط مزودات الذكاء الاصطناعي السحابية (Custom APIs)</h2>
+      </div>
+      <p>
+        تدعم الإضافة الاتصال المباشر بأي موديل سحابي ذكي فائق السرعة عبر واجهات OpenAI-compatible أو Anthropic Messages.
+      </p>
+
+      <ul class="feature-list">
+        <li><strong>DeepSeek:</strong> رابط النهاية <code class="inline">https://api.deepseek.com/v1/chat/completions</code> مع موديل <code class="inline">deepseek-chat</code>.</li>
+        <li><strong>GLM (Zhipu AI):</strong> رابط النهاية <code class="inline">https://open.bigmodel.cn/api/paas/v4/chat/completions</code> مع موديل <code class="inline">glm-4-flash</code>.</li>
+        <li><strong>OpenRouter:</strong> رابط النهاية <code class="inline">https://openrouter.ai/api/v1/chat/completions</code> لأي موديل مفتوح.</li>
+        <li><strong>OpenAI:</strong> موديلات <code class="inline">gpt-4o-mini</code> وغيرها.</li>
+        <li><strong>Anthropic:</strong> رابط النهاية <code class="inline">https://api.anthropic.com/v1/messages</code> مع موديل <code class="inline">claude-3-5-haiku-20241022</code>.</li>
+      </ul>
+
+      <p>طريقة الضبط:</p>
+      <ol style="padding-right: 20px; color: var(--text); margin-bottom: 16px;">
+        <li>اضغط على أيقونة الإضافة في شريط المتصفح، ثم انقر على أيقونة الترس ⚙️ في الزاوية.</li>
+        <li>انقر على اسم المزود من الأزرار الجاهزة (مثل <strong>DeepSeek</strong> أو <strong>GLM</strong>).</li>
+        <li>الصق مفتاحك الخاص في خانة <strong>API Key</strong>.</li>
+        <li>اضغط زر <strong>"اختبار الاتصال"</strong> للتحقق من زمن الاستجابة بالميلي ثانية ثم اضغط <strong>"حفظ الإعدادات"</strong>.</li>
+      </ol>
+    </section>
+
+        <!-- Section: Context Menu Power -->
+    <section class="manual-section" id="context-menu-actions">
+      <div class="section-header">
+        <span class="section-num">03</span>
+        <h2 class="section-title">قائمة الزر الأيمن المتكاملة (Right-Click Context Menu)</h2>
+      </div>
+      <p>
+        توفر الإضافة قائمة سريعة متكاملة تظهر مباشرة عند النقر بالزر الأيمن في أي مكان على الصفحة دون الحاجة لحفظ أو تذكر أي اختصارات:
+      </p>
+
+      <ul class="feature-list">
+        <li><strong>ترجمة كامل الصفحة (مع استمرار التلقائي عند التمرير والروابط):</strong> تترجم الصفحة بالكامل فورياً وتفعل الترجمة التلقائية المستمرة أثناء التمرير ونزولك لأسفل الصفحة والتنقل بين الصفحات والروابط.</li>
+        <li><strong>ترجمة هذه المنطقة / الفقرة المحددة فقط في مكانها:</strong> انقر بزر الماوس الأيمن على أي فقرة أو مقال أو كارت محدد لترجمته هو فقط مكانه دون المساس بباقي الصفحة.</li>
+        <li><strong>تشغيل/إيقاف الترجمة التلقائية لهذا الموقع دائماً:</strong> لتثبيت النطاق أو إيقاف المتابعة التلقائية بنقرة واحدة.</li>
+        <li><strong>استبدال النص المحدد بمكانه مباشرة:</strong> عند تحديد أي جملة، يستبدلها بالنص العربي فوراً داخل سياقها.</li>
+        <li><strong>ترجمة النص المحدد في النافذة العائمة:</strong> يعرض بطاقة المعاينة والخيارات فوق التحديد.</li>
+        <li><strong>استعادة النصوص الأصلية للصفحة (Revert):</strong> لإرجاع كافة النصوص إلى حالتها الأصلية بلمسة واحدة.</li>
+        <li><strong>فتح قارئ ومترجم المستندات (PDF / Word / EPUB):</strong> لفتح بيئة قراءة الكتب والمستندات الطويلة.</li>
+      </ul>
+    </section>
+    <!-- Section 04 -->
+    <section class="manual-section" id="auto-translate">
+      <div class="section-header">
+        <span class="section-num">03</span>
+        <h2 class="section-title">الترجمة التلقائية المستمرة للمواقع (Dynamic Continuous Auto-Translate)</h2>
+      </div>
+      <p>
+        خاصية مصممة خصيصاً للمواقع ذات التمرير اللانهائي (Infinite Scroll) والمواقع المبنية بأطر العمل الحديثة (React و Next.js و Vue ومواقع التوثيق التقني):
+      </p>
+
+      <ul class="feature-list">
+        <li><strong>ترجمة تلقائية مستمرة للنطاق:</strong> عند تفعيل خيار <em>"الترجمة التلقائية المستمرة لهذا الموقع"</em>، يتم حفظ النطاق في الذاكرة الدائمة. بمجرد فتح أي صفحة تابعة لنفس الموقع، تبدأ الترجمة فوراً وتلقائياً.</li>
+        <li><strong>مراقب المحتوى الحي (MutationObserver):</strong> عند النزول بالماوس لأسفل وتحميل فقرات جديدة، تلتقط الإضافة العناصر المضافة فوراً وتترجمها في الخلفية دون الحاجة للنقر على أي زر.</li>
+        <li><strong>رصد التنقل الداخلي (SPA Route Changes):</strong> عند الضغط على أي رابط فرعي أو قائمة داخلية دون إعادة تحميل الصفحة بالكامل، تكتشف الإضافة تغيير المسار وتترجم الصفحة الجديدة مباشرة.</li>
+      </ul>
+    </section>
+
+    <!-- Section 4 -->
+    
+<section class="manual-section" id="shortcuts">
+      <div class="section-header">
+        <span class="section-num">04</span>
+        <h2 class="section-title">الاختصارات ولوحة المفاتيح</h2>
+      </div>
+      <p>تم تعزيز استجابة الاختصارات لتعمل بدقة متناهية وبدعم كامل لكلا اللغتين العربية والإنجليزية على لوحة المفاتيح:</p>
+
+      <table class="editorial-table">
+        <thead>
+          <tr>
+            <th>الاختصار</th>
+            <th>الوظيفة</th>
+            <th>التوافق</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code class="inline">Alt + Shift + T</code> أو <code class="inline">Alt + Shift + ف</code></td>
+            <td>ترجمة كامل نصوص الصفحة الحالية فورياً أو استعادتها</td>
+            <td>أي موقع ويب</td>
+          </tr>
+          <tr>
+            <td><code class="inline">Alt + Shift + R</code> أو <code class="inline">Alt + Shift + ق</code></td>
+            <td>فتح مساحة عمل قارئ ومترجم الكتب (Neural Reader) في تبويب جديد</td>
+            <td>في أي مكان</td>
+          </tr>
+          <tr>
+            <td><code class="inline">Escape</code> (Esc)</td>
+            <td>إغلاق النوافذ المنبثقة والكبسولة واسترجاع النص الأصلي</td>
+            <td>تفاعلي</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Section 5 -->
+    <section class="manual-section" id="reader">
+      <div class="section-header">
+        <span class="section-num">05</span>
+        <h2 class="section-title">قارئ ومترجم الكتب والمستندات (Neural Reader)</h2>
+      </div>
+      <p>
+        مساحة عمل مخصصة للمستندات الطويلة (مئات الصفحات) تدعم السحب والإفلات وقراءة وتجزئة الصيغ التالية محلياً بدون خوادم وسيطة:
+      </p>
+
+      <ul class="feature-list">
+        <li><strong>ملفات PDF (.pdf):</strong> استخراج النصوص الرقمية وإعادة تركيب الفقرات بذكاء عبر محرك PDF.js المدمج.</li>
+        <li><strong>مستندات Word (.docx):</strong> تحليل عناصر XML والفقرات والعناوين دون الحاجة لحزمة Office.</li>
+        <li><strong>كتب EPUB (.epub):</strong> استخراج فصول الكتاب كنصوص مرتبة بالكامل.</li>
+        <li><strong>ملفات Markdown و TXT (.md, .txt):</strong> معالجة فورية وتجزئة ذكية للفقرات.</li>
+      </ul>
+
+      <p>خيارات العرض والتصدير:</p>
+      <ul class="feature-list">
+        <li><strong>العرض المزدوج (Dual-Pane):</strong> النص الأصلي يساراً والنص المترجم يميناً مع تمرير وتظليل متزامن ونحاسي.</li>
+        <li><strong>التدفق المترجم (Inline):</strong> عمود قراءة مستمر مع قائمة طي (<code class="inline">details</code>) أسفل كل فقرة للاطلاع على النص الأصلي عند الحاجة.</li>
+        <li><strong>قائمة التصدير:</strong> نسخ الترجمة كاملة بنقرة واحدة للحافظة (Clipboard) أو تحميلها بصيغة Markdown أو TXT.</li>
+      </ul>
+    </section>
+
+    <!-- Section 6 -->
+    <section class="manual-section" id="packaging">
+      <div class="section-header">
+        <span class="section-num">06</span>
+        <h2 class="section-title">التجميع والرفع لـ GitHub و Chrome Web Store</h2>
+      </div>
+      <p>
+        تم إعداد سكربت تجميع أوتوماتيكي يقوم بفحص الكود، ضغط الأصول، وإنتاج حزمة ZIP نهائية ومحكمة:
+      </p>
+
+      <pre># تشغيل سكربت التجميع
+./package.sh
+
+# الملف الناتج في المجلد
+dist/neural-translate-v1.0.2.zip</pre>
+
+      <p>طريقة التثبيت في متصفح Brave أو Chromium:</p>
+      <ol style="padding-right: 20px; color: var(--text);">
+        <li>توجه إلى <code class="inline">brave://extensions</code> وفعل <strong>Developer mode</strong>.</li>
+        <li>اضغط على <strong>Load unpacked</strong> واختر مجلد المشروع:
+          <br><code class="inline">/home/omar/Projects/translation extntion</code>
+        </li>
+        <li>أو يمكنك رفع ملف <code class="inline">dist/neural-translate-v1.0.2.zip</code> مباشرة إلى متجر Chrome Web Store للمطورين.</li>
+      </ol>
+    </section>
+  </div>
+</body>
+</html>
+

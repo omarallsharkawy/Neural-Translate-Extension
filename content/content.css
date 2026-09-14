@@ -1,0 +1,77 @@
+/* Neural Translate - Cinematic Editorial Styles */
+
+/* In-place replaced text inside host webpage */
+bdi.neural-in-place-replaced {
+  unicode-bidi: isolate !important;
+  direction: rtl !important;
+  background-color: transparent !important;
+  border-bottom: 1.5px solid rgba(183, 130, 94, 0.7) !important;
+  border-radius: 1px !important;
+  padding: 0 2px !important;
+  margin: 0 1px !important;
+  cursor: pointer !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+  color: inherit !important;
+  transition: background-color 0.15s ease, border-color 0.15s ease !important;
+}
+
+bdi.neural-in-place-replaced:hover {
+  background-color: rgba(183, 130, 94, 0.1) !important;
+  border-bottom-color: #d0a381 !important;
+}
+
+bdi.neural-tech-token {
+  unicode-bidi: isolate !important;
+  direction: ltr !important;
+  display: inline-block !important;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-size: 0.9em !important;
+  font-weight: 500 !important;
+  padding: 0 3px !important;
+  color: #d0a381 !important;
+  background: rgba(183, 130, 94, 0.12) !important;
+  border-radius: 2px !important;
+}
+
+/* Cinematic Editorial Hover Preview Bubble */
+.neural-revert-bubble {
+  position: absolute;
+  z-index: 2147483640;
+  background: #1c1916;
+  color: #e8decd;
+  border: 1px solid rgba(232, 222, 205, 0.18);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-family: "Manrope", "Noto Sans Arabic", system-ui, sans-serif;
+  font-size: 12.5px;
+  line-height: 1.5;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  max-width: 320px;
+  pointer-events: auto;
+  animation: nt-bubble-fade 0.15s ease-out;
+}
+
+.neural-revert-bubble .bubble-label {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #b7825e;
+  margin-bottom: 4px;
+}
+
+.neural-revert-bubble .bubble-source {
+  direction: ltr;
+  text-align: left;
+  color: #e8decd;
+  word-break: break-word;
+}
+
+@keyframes nt-bubble-fade {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+

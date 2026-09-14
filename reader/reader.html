@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neural Reader - قارئ ومترجم الكتب والمستندات</title>
+  <link rel="stylesheet" href="reader.css">
+</head>
+<body>
+  <div class="reader-layout">
+    <!-- Top Global App Bar -->
+    <header class="reader-header">
+      <div class="header-left">
+        <div class="brand">
+          <div class="brand-symbol">ع</div>
+          <div class="brand-titles">
+            <span class="brand-name">Neural Reader</span>
+            <span id="doc-title" class="doc-name">لم يتم تحميل مستند</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center: Mode Switcher -->
+      <div class="header-center">
+        <div class="view-mode-toggle" role="tablist">
+          <button id="mode-dual" class="mode-btn active" title="عرض النص الأصلي والمترجم جنباً إلى جنب">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="12" y1="3" x2="12" y2="21"></line></svg>
+            <span>العرض المزدوج (Dual)</span>
+          </button>
+          <button id="mode-inline" class="mode-btn" title="قراءة الترجمة في تدفق موحد مريح">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="21" y1="18" x2="3" y2="18"></line></svg>
+            <span>التدفق المترجم (Inline)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: Engine, Font & Actions -->
+      <div class="header-right">
+        <!-- Engine Status -->
+        <div id="reader-engine-status" class="engine-badge" title="محرك الترجمة الحالي">
+          <span class="engine-dot"></span>
+          <span id="reader-engine-name">AI Local GPU</span>
+        </div>
+
+        <!-- Typography Controls -->
+        <div class="typography-controls">
+          <button id="font-decrease" class="tool-btn" title="تصغير الخط">A-</button>
+          <span id="font-size-val" class="font-indicator">16px</span>
+          <button id="font-increase" class="tool-btn" title="تكبير الخط">A+</button>
+        </div>
+
+        <!-- Export Dropdown Trigger -->
+        <div class="dropdown-wrapper">
+          <button id="btn-export-menu" class="btn-action" title="خيارات التصدير والنسخ">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span>تصدير</span>
+          </button>
+          <div id="export-dropdown" class="export-dropdown hidden">
+            <button id="btn-export-copy" class="dropdown-item">
+              <span>نسخ الترجمة كاملة للحافظة</span>
+            </button>
+            <button id="btn-export-md" class="dropdown-item">
+              <span>تحميل ملف Markdown (.md)</span>
+            </button>
+            <button id="btn-export-txt" class="dropdown-item">
+              <span>تحميل ملف نصي (.txt)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Open File -->
+        <label class="btn-action btn-upload" title="فتح مستند جديد">
+          <input type="file" id="file-input" accept=".txt,.md,.markdown,.epub,.docx,.pdf" style="display:none;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+          <span>فتح ملف</span>
+        </label>
+
+        <!-- Close / Clear Document -->
+        <button id="btn-close-doc" class="btn-action btn-close-doc hidden" title="إغلاق المستند والعودة">
+          <span>إغلاق المستند</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Subheader Progress & Translation Toolbar -->
+    <div id="progress-bar-container" class="progress-bar-container">
+      <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
+      <div class="progress-bar-meta">
+        <div class="meta-left">
+          <span id="progress-text">جاهز للقراءة</span>
+          <span id="progress-stats" class="meta-copper">0 / 0 فقرة</span>
+        </div>
+        <div class="meta-right">
+          <button id="btn-translate-all" class="btn-toolbar-action">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <span>بدء الترجمة المتسلسلة</span>
+          </button>
+          <button id="btn-pause-translate" class="btn-toolbar-action hidden">
+            <span>إيقاف مؤقت</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty Dropzone State (Visible ONLY when no document loaded) -->
+    <div id="empty-state" class="empty-state">
+      <div class="drop-card" id="drop-zone">
+        <div class="drop-icon">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="m16 16-4-4-4 4"></path></svg>
+        </div>
+        <h2 class="drop-title">اسحب وأفلت كتاباً أو مستنداً هنا</h2>
+        <p class="drop-subtitle">يدعم ملفات PDF والمستندات Word (.docx) و EPUB و Markdown و TXT</p>
+
+        <div class="drop-actions">
+          <button id="btn-browse-file" class="btn-primary-large">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            <span>استعراض ملف من الجهاز</span>
+          </button>
+          <button id="btn-load-sample" class="btn-secondary-large">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <span>تحميل مقال تجريبي فوري (AI Paper)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Reading Workspace (Visible ONLY when document loaded) -->
+    <main id="reader-workspace" class="reader-workspace dual-view hidden">
+      <!-- Left Column: Source Text (LTR) -->
+      <section id="source-pane" class="reader-column source-column" dir="ltr">
+        <div class="column-header">
+          <span class="column-title">Original (Source)</span>
+          <span id="source-word-count" class="column-badge">0 words</span>
+        </div>
+        <div id="source-content" class="column-scroll"></div>
+      </section>
+
+      <!-- Center Hairline Divider -->
+      <div class="column-divider"></div>
+
+      <!-- Right Column: Translated Text (RTL) -->
+      <section id="target-pane" class="reader-column target-column" dir="rtl">
+        <div class="column-header">
+          <span class="column-title">الترجمة الفورية (العربية)</span>
+          <span id="target-stat-badge" class="column-badge">0 فقرة مكتملة</span>
+        </div>
+        <div id="target-content" class="column-scroll"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Bundled Client-Side Document Parsers -->
+  <script src="lib/jszip.min.js"></script>
+  <script src="lib/pdf.min.js"></script>
+  <script src="reader.js"></script>
+</body>
+</html>
+

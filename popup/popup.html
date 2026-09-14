@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neural Translate</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="popup-header">
+      <div class="header-brand">
+        <div class="brand-symbol">ع</div>
+        <div class="brand-titles">
+          <h1 class="brand-title">Neural Translate</h1>
+          <span class="brand-meta">CINEMATIC EDITORIAL · HYBRID AI</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="tab-btn-settings" class="icon-toggle-btn" title="إعدادات مفاتيح API">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main View -->
+    <div id="view-main" class="view-panel">
+      <!-- Engine Status & Telemetry Strip -->
+      <div class="status-strip">
+        <div class="status-indicator">
+          <span id="status-dot" class="dot"></span>
+          <span id="status-text" class="status-name">فحص المحرك...</span>
+        </div>
+        <div id="telemetry-speed" class="telemetry-mono">-- t/s</div>
+      </div>
+
+      <!-- Mode Selector -->
+      <div class="mode-selector" role="tablist">
+        <button class="mode-btn active" data-mode="auto" title="تحويل تلقائي بين الموديلات حسب الجاهزية">هجين ذكي</button>
+        <button class="mode-btn" data-mode="custom" title="الترجمة عبر مفتاح API المخصص">مخصص API</button>
+        <button class="mode-btn" data-mode="ai" title="الاعتماد الحصري على نموذج Gemma-4 المحلي">محلي GPU</button>
+        <button class="mode-btn" data-mode="fast" title="ترجمة خفيفة سريعة">سحابي سريع</button>
+      </div>
+
+      <!-- Persistent Auto-Translate for Current Site -->
+      <div class="site-autotranslate-card">
+        <label class="switch-label">
+          <input type="checkbox" id="toggle-site-autotranslate">
+          <span class="switch-ui"></span>
+          <div class="switch-col">
+            <span class="switch-text-bold">الترجمة التلقائية المستمرة لهذا الموقع</span>
+            <span id="site-domain-label" class="switch-subtext">ترجمة الصفحات والمحتوى الجديد تلقائياً</span>
+          </div>
+        </label>
+      </div>
+
+      <!-- Quick Translate Card -->
+      <div class="editorial-card">
+        <div class="card-label">ترجمة سريعة</div>
+        <div class="input-container">
+          <textarea id="quick-input" placeholder="اكتب أو الصق نصاً هنا للترجمة..." rows="3"></textarea>
+          <button id="clear-input-btn" class="clear-btn" title="مسح">✕</button>
+        </div>
+
+        <div class="card-action-bar">
+          <button id="translate-btn" class="btn-primary">
+            <span>ترجمة فورية</span>
+          </button>
+          <div id="quick-duration" class="mono-meta"></div>
+        </div>
+
+        <div id="quick-result-wrap" class="result-box hidden">
+          <div class="result-header">
+            <span id="quick-engine-badge" class="copper-badge">Gemma-4</span>
+            <div style="display:flex; gap:6px;">
+
+              <button id="copy-quick-btn" class="btn-copy">
+                <span id="copy-label">نسخ</span>
+              </button>
+            </div>
+          </div>
+          <div id="quick-output" class="result-arabic"></div>
+        </div>
+      </div>
+
+      <!-- Navigation Links -->
+      <div class="editorial-actions">
+        <button id="btn-page-translate" class="action-tile">
+          <div class="tile-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+          </div>
+          <div class="tile-content">
+            <span class="tile-title">ترجمة كامل الصفحة الحالية</span>
+            <span class="tile-meta">استبدال نصوص الصفحة في مكانها · Alt+Shift+T</span>
+          </div>
+        </button>
+
+        <button id="btn-open-reader" class="action-tile">
+          <div class="tile-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+          </div>
+          <div class="tile-content">
+            <span class="tile-title">قارئ الكتب والمستندات الطويلة</span>
+            <span class="tile-meta">بيئة قراءة وتجزئة ملفات EPUB و Markdown</span>
+          </div>
+        </button>
+      </div>
+
+      <!-- Settings Footer -->
+      <footer class="popup-footer">
+        <label class="switch-label">
+          <input type="checkbox" id="toggle-autopill" checked>
+          <span class="switch-ui"></span>
+          <span class="switch-text">الكبسولة العائمة عند التحديد</span>
+        </label>
+        <button id="btn-clear-cache" class="link-subtle">مسح الكاش</button>
+      </footer>
+    </div>
+
+    <!-- API Settings View -->
+    <div id="view-settings" class="view-panel hidden">
+      <div class="settings-header">
+        <button id="btn-back-main" class="btn-back">
+          <span>← العودة للرئيسية</span>
+        </button>
+        <span class="settings-title">إعدادات محرك الـ API</span>
+      </div>
+      <!-- Local Model Server Settings -->
+      <div class="editorial-card">
+        <div class="card-label">خادم الذكاء الاصطناعي المحلي (Local Model Server)</div>
+        <p style="font-size:11px; color:var(--muted); margin-bottom:6px;">
+          لتشغيل نماذج Gemma-4 أو Qwen أو Llama محلياً على جهازك (Windows / Linux) دون الحاجة لأي إنترنت:
+        </p>
+
+        <div class="preset-label">خوادم محلية جاهزة:</div>
+        <div class="preset-chips">
+          <button class="chip-btn" data-local-preset="llama">llama-server (28491)</button>
+          <button class="chip-btn" data-local-preset="lmstudio">LM Studio (1234)</button>
+          <button class="chip-btn" data-local-preset="ollama">Ollama (11434)</button>
+          <button class="chip-btn" data-local-preset="vllm">vLLM (8000)</button>
+        </div>
+
+        <div class="form-group">
+          <label for="local-server-url">رابط السيرفر المحلي (Local Endpoint)</label>
+          <input type="text" id="local-server-url" placeholder="http://127.0.0.1:28491">
+        </div>
+
+        <div class="settings-actions">
+          <button id="btn-test-local-ai" class="btn-secondary">
+            <span>فحص الموديل المحلي</span>
+          </button>
+          <button id="btn-save-local-ai" class="btn-primary">
+            <span>حفظ الرابط</span>
+          </button>
+        </div>
+
+        <div id="local-ai-test-feedback" class="test-feedback hidden"></div>
+      </div>
+
+
+      <div class="editorial-card">
+        <div class="card-label">تفعيل المحرك المخصص</div>
+        <label class="switch-label mb-10">
+          <input type="checkbox" id="api-enable-toggle">
+          <span class="switch-ui"></span>
+          <span class="switch-text">استخدام الـ API المخصص للترجمة</span>
+        </label>
+
+        <!-- Presets Buttons -->
+        <div class="preset-label">قوالب جاهزة سريعة:</div>
+        <div class="preset-chips">
+          <button class="chip-btn" data-preset="deepseek">DeepSeek</button>
+          <button class="chip-btn" data-preset="glm">GLM (Zhipu)</button>
+          <button class="chip-btn" data-preset="openrouter">OpenRouter</button>
+          <button class="chip-btn" data-preset="openai">OpenAI</button>
+          <button class="chip-btn" data-preset="anthropic">Claude</button>
+        </div>
+
+        <div class="form-group">
+          <label for="api-endpoint">رابط النهاية (Endpoint URL)</label>
+          <input type="text" id="api-endpoint" placeholder="https://api.deepseek.com/v1/chat/completions">
+        </div>
+
+        <div class="form-group">
+          <label for="api-key">مفتاح الوصول (API Key)</label>
+          <div class="key-input-wrap">
+            <input type="password" id="api-key" placeholder="sk-...">
+            <button id="toggle-key-visibility" class="btn-eye" title="إظهار/إخفاء">👁</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="api-model">اسم الموديل (Model ID)</label>
+          <input type="text" id="api-model" placeholder="deepseek-chat أو glm-4-flash">
+        </div>
+
+        <div class="settings-actions">
+          <button id="btn-test-api" class="btn-secondary">
+            <span>اختبار الاتصال</span>
+          </button>
+          <button id="btn-save-api" class="btn-primary">
+            <span>حفظ الإعدادات</span>
+          </button>
+        </div>
+
+        <div id="api-test-feedback" class="test-feedback hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
+
