@@ -789,7 +789,7 @@
   }
 
   // --- Page Floating Control Bar ---
-  function updatePageFloatingBar() {
+  function updatePageFloatingBar(customMsg = null) {
     initShadowHost();
 
     const totalCount = activeReplacements.length + (fullPageOriginalMap.size > 0 ? 1 : 0);
@@ -810,7 +810,7 @@
     
     let statusMsg = '';
     if (isPageTranslating) {
-      statusMsg = 'جارٍ الترجمة الفورية...';
+      statusMsg = customMsg || 'جارٍ الترجمة الفورية...';
     } else if (isAutoTranslateActive) {
       statusMsg = `الترجمة المستمرة نشطة <span class="nt-page-bar-badge">${currentHostname || 'مستمر'}</span>`;
     } else {
@@ -991,7 +991,7 @@
         fullPageOriginalMap.set(node, node.nodeValue);
       }
       const len = node.nodeValue.length;
-      if (curLen + len > 1200 && curBatch.length > 0) {
+      if (curLen + len > 800 && curBatch.length > 0) {
         batches.push(curBatch);
         curBatch = [node];
         curLen = len;
@@ -1069,6 +1069,26 @@
       }
     }
 
+    // Prioritize main content: H1, H2, H3, P, Article, and visible viewport nodes first
+    textNodes.sort((a, b) => {
+      const blockA = a.parentElement?.closest("h1, h2, h3, p, article");
+      const blockB = b.parentElement?.closest("h1, h2, h3, p, article");
+      const isImportantA = blockA ? 0 : 1;
+      const isImportantB = blockB ? 0 : 1;
+      if (isImportantA !== isImportantB) return isImportantA - isImportantB;
+
+      let aInVp = 1, bInVp = 1;
+      try {
+        const ra = a.parentElement?.getBoundingClientRect();
+        if (ra && ra.bottom >= -50 && ra.top <= window.innerHeight + 150) aInVp = 0;
+      } catch(e) {}
+      try {
+        const rb = b.parentElement?.getBoundingClientRect();
+        if (rb && rb.bottom >= -50 && rb.top <= window.innerHeight + 150) bInVp = 0;
+      } catch(e) {}
+      return aInVp - bInVp;
+    });
+
     if (textNodes.length === 0) {
       isPageTranslating = false;
       updatePageFloatingBar();
@@ -1081,7 +1101,7 @@
 
     for (const node of textNodes) {
       const len = node.nodeValue.length;
-      if (currentBatchChars + len > 1200 && currentBatch.length > 0) {
+      if (currentBatchChars + len > 800 && currentBatch.length > 0) {
         batches.push(currentBatch);
         currentBatch = [node];
         currentBatchChars = len;
@@ -1094,10 +1114,13 @@
       batches.push(currentBatch);
     }
 
-    const CONCURRENCY = 3;
+    // Parallel chunk pipeline matching -np 2 GPU slots
+    const CONCURRENCY = 2;
     for (let i = 0; i < batches.length; i += CONCURRENCY) {
       const slice = batches.slice(i, i + CONCURRENCY);
-      await Promise.all(slice.map(processBatch));
+      const pct = Math.round(((i + slice.length) / batches.length) * 100);
+      updatePageFloatingBar('جارٍ الترجمة (%' + pct + ')...');
+      await Promise.all(slice.map(b => processBatch(b)));
     }
 
     isPageTranslating = false;
@@ -1107,6 +1130,7 @@
   async function processBatch(batchNodes, bypassCache = false) {
     const rawTexts = batchNodes.map(n => n.nodeValue.trim());
     return new Promise((resolve) => {
+      const safetyTimer = setTimeout(resolve, 8000);
       chrome.runtime.sendMessage(
         { action: 'TRANSLATE_BATCH', texts: rawTexts, mode: preferredMode, targetLang: 'ar', bypassCache },
         (res) => {
@@ -1125,6 +1149,8 @@
               }
             });
           }
+          clearTimeout(safetyTimer);
+          
           resolve();
         }
       );

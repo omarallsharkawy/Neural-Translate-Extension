@@ -45,4 +45,4 @@ echo " Model:  $MODEL_FILE"
 echo " URL:    http://$HOST:$PORT/v1/chat/completions"
 echo "========================================================="
 
-exec "$SERVER_BIN"   --model "$MODEL_FILE"   --port "$PORT"   --host "$HOST"   -ngl 99   -fa on   -c 12288   -t 6   -np 1   --reasoning off   --reasoning-budget 0   --log-disable
+exec "$SERVER_BIN"   --model "$MODEL_FILE"   --port "$PORT"   --host "$HOST"   -ngl 99   -fa on   -c 32768 -ctk q8_0 -ctv q8_0   -t 6   -np 2   --reasoning off   --reasoning-budget 0   --log-disable

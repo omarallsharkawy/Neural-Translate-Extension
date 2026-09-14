@@ -185,7 +185,8 @@ async function fetchTelemetry() {
     activeModel: isHealthy ? modelName : 'None',
     vramUsed: isHealthy ? 2415 : 0,
     vramTotal: 8188,
-    tokensPerSec: isHealthy ? 95 : null,
+    totalContext: 32768,
+    tokensPerSec: isHealthy ? 99 : null,
     serverUrl: baseUrl
   };
 }
@@ -222,7 +223,7 @@ async function queryCustomApi(text, config, customSystemPrompt = null) {
       },
       body: JSON.stringify({
         model: model,
-        max_tokens: 1500,
+        max_tokens: 4096,
         system: (customSystemPrompt || SYSTEM_PROMPT),
         messages: [{ role: 'user', content: text }]
       }),
@@ -269,10 +270,18 @@ async function queryCustomApi(text, config, customSystemPrompt = null) {
 }
 
 // --- Configurable Local Model Caller ---
+// Mutex to prevent single-slot llama-server collisions
+let localEngineMutex = Promise.resolve();
+function queryLocalEngineSafe(text, customSystemPrompt) {
+  const task = () => queryLocalEngine(text, customSystemPrompt);
+  const p = localEngineMutex.then(task, task);
+  localEngineMutex = p.catch(() => {});
+  return p;
+}
 async function queryLocalEngine(text, customSystemPrompt = null) {
   const baseUrl = await getLocalServerBaseUrl();
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 25000);
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
 
   const payload = {
     messages: [
@@ -285,7 +294,7 @@ async function queryLocalEngine(text, customSystemPrompt = null) {
     cache_prompt: false,
     id_slot: 0,
     stop: ["\n\nملاحظة:", "\n\nNote:", "Translation:"],
-    max_tokens: 1800
+    max_tokens: 4096
   };
 
   const endpoint = `${baseUrl}/v1/chat/completions`;
@@ -393,11 +402,11 @@ async function handleTranslate({ text, mode = 'auto', targetLang = 'ar', bypassC
           const chunks = splitIntoChunks(trimmed, 1300);
           const results = [];
           for (const c of chunks) {
-            results.push(await queryLocalEngine(c));
+            results.push(await queryLocalEngineSafe(c));
           }
           translatedText = results.join('\n\n');
         } else {
-          translatedText = await queryLocalEngine(trimmed);
+          translatedText = await queryLocalEngineSafe(trimmed);
         }
         if (translatedText) {
           usedEngine = 'Local AI (GPU)';
@@ -470,46 +479,64 @@ async function safeSendMessage(tabId, message) {
 // --- High-Efficiency Structured Batch Translator ---
 async function handleBatchTranslate(texts, mode = 'auto', targetLang = 'ar') {
   const results = new Array(texts.length);
-  const uncachedIndices = [];
 
-  // 1. Check Caches first (0ms)
+  // 1. Group by unique text to avoid translating duplicate strings
+  const uniqueMap = new Map();
   for (let i = 0; i < texts.length; i++) {
     const trimmed = (texts[i] || '').trim();
     if (!trimmed) {
       results[i] = { text: '', engine: 'none', fromCache: true };
       continue;
     }
-    const key = hashKey(trimmed, mode, targetLang);
+    if (!uniqueMap.has(trimmed)) {
+      uniqueMap.set(trimmed, []);
+    }
+    uniqueMap.get(trimmed).push(i);
+  }
+
+  const uniqueList = Array.from(uniqueMap.keys());
+  const uniqueResults = new Array(uniqueList.length);
+  const uncachedUniqueIndices = [];
+
+  // Check Caches for unique texts (0ms)
+  for (let u = 0; u < uniqueList.length; u++) {
+    const text = uniqueList[u];
+    const key = hashKey(text, mode, targetLang);
     if (hotCache.has(key)) {
-      results[i] = { ...hotCache.get(key), fromCache: true };
+      uniqueResults[u] = { ...hotCache.get(key), fromCache: true };
     } else {
-      uncachedIndices.push(i);
+      uncachedUniqueIndices.push(u);
     }
   }
 
-  // Check persistent DB for uncached items
+  // Check persistent DB for uncached unique texts
   const stillUncached = [];
-  for (const idx of uncachedIndices) {
-    const trimmed = texts[idx].trim();
-    const key = hashKey(trimmed, mode, targetLang);
+  for (const u of uncachedUniqueIndices) {
+    const text = uniqueList[u];
+    const key = hashKey(text, mode, targetLang);
     const dbRes = await getCachedTranslation(key);
     if (dbRes) {
       hotCache.set(key, dbRes);
-      results[idx] = { ...dbRes, fromCache: true };
+      uniqueResults[u] = { ...dbRes, fromCache: true };
     } else {
-      stillUncached.push(idx);
+      stillUncached.push(u);
     }
   }
 
-  if (stillUncached.length === 0) {
-    return results;
-  }
-
-  // 2. Translate uncached items using structured batch prompt
+  // Translate remaining uncached unique items
   const CHUNK_SIZE = 10;
   for (let b = 0; b < stillUncached.length; b += CHUNK_SIZE) {
-    const batchIndices = stillUncached.slice(b, b + CHUNK_SIZE);
-    await processStructuredSubBatch(batchIndices, texts, results, mode, targetLang);
+    const subIndices = stillUncached.slice(b, b + CHUNK_SIZE);
+    await processStructuredSubBatch(subIndices, uniqueList, uniqueResults, mode, targetLang);
+  }
+
+  // Map unique results back to all occurrences in the document
+  for (let u = 0; u < uniqueList.length; u++) {
+    const resPayload = uniqueResults[u] || { text: uniqueList[u], engine: 'fallback' };
+    const originalIndices = uniqueMap.get(uniqueList[u]);
+    for (const origIdx of originalIndices) {
+      results[origIdx] = resPayload;
+    }
   }
 
   return results;
@@ -539,7 +566,7 @@ async function processStructuredSubBatch(batchIndices, texts, results, mode, tar
     const isHealthy = await checkLocalHealth();
     if (isHealthy) {
       try {
-        translatedRaw = await queryLocalEngine(structuredPrompt, BATCH_SYSTEM_PROMPT);
+        translatedRaw = await queryLocalEngineSafe(structuredPrompt, BATCH_SYSTEM_PROMPT);
         if (translatedRaw) {
           usedEngine = 'Gemma-4 (GPU)';
           success = true;
