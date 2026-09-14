@@ -159,6 +159,21 @@
         </div>
 
         <div id="local-ai-test-feedback" class="test-feedback hidden"></div>
+
+        <!-- Folder & Setup Quick Guide -->
+        <div style="background: var(--well); border: 1px solid var(--line); border-radius: 2px; padding: 8px 10px; margin-top: 8px; font-size: 11px; line-height: 1.6;">
+          <div style="color: var(--copper-ink); font-weight: 600; margin-bottom: 2px;">أين تضع ملفات الموديل (.gguf)؟</div>
+          <div style="color: var(--muted); font-family: var(--mono); font-size: 10px; direction: ltr; text-align: left; background: var(--panel); padding: 4px 6px; border-radius: 2px; margin-bottom: 4px;">
+            Windows: .\models\gemma-4-E2B-it-Q4_K_M.gguf<br>
+            Linux: ~/.local/share/neural-translate/models/
+          </div>
+          <div style="color: var(--muted);">
+            ثم شغل <span style="color: var(--text); font-family: var(--mono);">run-local-gemma.bat</span> (ويندوز) أو <span style="color: var(--text); font-family: var(--mono);">run-local-gemma.sh</span> (لينكس).
+          </div>
+          <button id="btn-open-manual-guide" class="btn-secondary" style="width: 100%; margin-top: 6px; font-size: 11px; padding: 4px 8px;">
+            <span>فتح دليل التثبيت والتشغيل المفصل</span>
+          </button>
+        </div>
       </div>
 
 

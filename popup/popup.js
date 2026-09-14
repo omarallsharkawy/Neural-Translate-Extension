@@ -431,6 +431,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
 
+  const btnOpenManualGuide = document.getElementById("btn-open-manual-guide");
+  btnOpenManualGuide?.addEventListener("click", () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL("manual/index.html#local-ai") });
+  });
+
   // Clear Cache
   btnClearCache.addEventListener('click', () => {
     chrome.runtime.sendMessage({ action: 'CLEAR_CACHE' }, () => {
