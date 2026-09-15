@@ -26,6 +26,8 @@ const STORE_NAME = 'translations';
 
 function openCacheDB() {
   return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('IndexedDB timeout')), 100);
+    try {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
@@ -33,21 +35,27 @@ function openCacheDB() {
         db.createObjectStore(STORE_NAME, { keyPath: 'key' });
       }
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => { clearTimeout(timer); resolve(request.result); };
+    request.onerror = () => { clearTimeout(timer); reject(request.error); };
+    request.onblocked = () => { clearTimeout(timer); reject(new Error('IndexedDB blocked')); };
+    } catch (e) { clearTimeout(timer); reject(e); }
   });
 }
 
 async function getCachedTranslation(key) {
   try {
-    const db = await openCacheDB();
-    return new Promise((resolve) => {
-      const tx = db.transaction(STORE_NAME, 'readonly');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.get(key);
-      req.onsuccess = () => resolve(req.result ? req.result.payload : null);
-      req.onerror = () => resolve(null);
-    });
+    const promise = (async () => {
+      const db = await openCacheDB();
+      return new Promise((resolve) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result ? req.result.payload : null);
+        req.onerror = () => resolve(null);
+      });
+    })();
+    const timeout = new Promise(resolve => setTimeout(() => resolve(null), 80));
+    return await Promise.race([promise, timeout]);
   } catch (e) {
     return null;
   }
@@ -123,11 +131,15 @@ function splitIntoChunks(fullText, maxChunkSize = 1200) {
 // --- Configurable Local Engine Probing ---
 async function getLocalServerBaseUrl() {
   return new Promise((resolve) => {
-    chrome.storage?.local?.get(['localServerUrl'], (data) => {
-      let url = data?.localServerUrl || DEFAULT_LOCAL_AI_URL;
-      url = url.replace(/\/+$/, '').replace(/\/v1(\/chat\/completions)?$/, '');
-      resolve(url);
-    });
+    const timer = setTimeout(() => resolve(DEFAULT_LOCAL_AI_URL), 150);
+    try {
+      chrome.storage?.local?.get(['localServerUrl'], (data) => {
+        clearTimeout(timer);
+        let url = data?.localServerUrl || DEFAULT_LOCAL_AI_URL;
+        url = url.replace(/\/+$/, '').replace(/\/v1(\/chat\/completions)?$/, '');
+        resolve(url);
+      });
+    } catch(e) { clearTimeout(timer); resolve(DEFAULT_LOCAL_AI_URL); }
   });
 }
 
@@ -647,7 +659,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   switch (request.action) {
     case 'TRANSLATE':
-      handleTranslate(request).then(sendResponse);
+      (async () => {
+        try {
+          const res = await handleTranslate(request);
+          sendResponse(res || { text: request.text || '', engine: 'Fallback', durationMs: 0 });
+        } catch (err) {
+          console.error('[SW] handleTranslate error:', err);
+          sendResponse({ text: request.text || '', engine: 'خطأ', durationMs: 0 });
+        }
+      })();
       return true;
 
     case 'TRANSLATE_BATCH':

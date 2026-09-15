@@ -626,6 +626,41 @@
   }
 
   // --- Show Tooltip and Request Translation ---
+  async function fallbackTranslateDirect(text) {
+    try {
+      const localRes = await fetch('http://127.0.0.1:28491/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: 'You are an elite bilingual translator. Translate into natural Arabic. Output ONLY the translation.' },
+            { role: 'user', content: text }
+          ],
+          temperature: 0.1,
+          cache_prompt: true,
+          max_tokens: Math.min(512, Math.max(64, Math.ceil(text.length * 2)))
+        }),
+        signal: AbortSignal.timeout(2800)
+      });
+      if (localRes.ok) {
+        const data = await localRes.json();
+        const content = data?.choices?.[0]?.message?.content?.trim();
+        if (content) return { text: content.replace(/^["'«“]|["'»”]$/g, '').trim(), engine: 'Local AI (GPU)' };
+      }
+    } catch (e) {}
+    try {
+      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=ar&dt=t&q=${encodeURIComponent(text)}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(2500) });
+      if (res.ok) {
+        const parsed = await res.json();
+        if (Array.isArray(parsed) && Array.isArray(parsed[0])) {
+          return { text: parsed[0].map(item => item[0]).join(''), engine: 'سحابي فوري' };
+        }
+      }
+    } catch (e) {}
+    return { text: text, engine: 'خطأ' };
+  }
+
   function showTooltipForCurrentSelection(customText, customRange) {
     const text = customText || currentSelectionText || (window.getSelection() ? window.getSelection().toString().trim() : '');
     if (!text) return;
@@ -665,15 +700,17 @@
     const safetyTimer = setTimeout(() => {
       if (!hasHandledResponse) {
         hasHandledResponse = true;
-        renderTooltipContent({
-          original: text,
-          translated: 'استغرق المحرك وقتاً أطول من المتوقع. انقر على "إعادة الترجمة" لإعادة المحاولة فوراً.',
-          loading: false,
-          engine: 'تنبيه',
-          durationMs: 7000
+        fallbackTranslateDirect(text).then(res => {
+          renderTooltipContent({
+            original: text,
+            translated: res.text,
+            loading: false,
+            engine: res.engine,
+            durationMs: 2800
+          });
         });
       }
-    }, 7000);
+    }, 2800);
 
     chrome.runtime.sendMessage(
       { action: 'TRANSLATE', text, mode: preferredMode, targetLang: 'ar' },
@@ -683,12 +720,14 @@
         clearTimeout(safetyTimer);
 
         if (chrome.runtime.lastError || !response) {
-          renderTooltipContent({
-            original: text,
-            translated: 'تعذر الاتصال بمحرك الترجمة.',
-            loading: false,
-            engine: 'خطأ',
-            durationMs: 0
+          fallbackTranslateDirect(text).then(res => {
+            renderTooltipContent({
+              original: text,
+              translated: res.text,
+              loading: false,
+              engine: res.engine,
+              durationMs: 120
+            });
           });
           return;
         }
