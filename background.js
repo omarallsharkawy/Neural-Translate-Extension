@@ -269,18 +269,36 @@ async function queryCustomApi(text, config, customSystemPrompt = null) {
 }
 
 // --- Configurable Local Model Caller ---
-// Mutex to prevent single-slot llama-server collisions
-let localEngineMutex = Promise.resolve();
-function queryLocalEngineSafe(text, customSystemPrompt) {
-  const task = () => queryLocalEngine(text, customSystemPrompt);
-  const p = localEngineMutex.then(task, task);
-  localEngineMutex = p.catch(() => {});
-  return p;
+// Dual-slot concurrency limiter (matching llama-server -np 2) with priority lane for user interactions
+let activeLocalQueries = 0;
+const localQueryWaiters = [];
+
+async function queryLocalEngineSafe(text, customSystemPrompt = null, isPriority = false) {
+  // Interactive user selection translations run immediately with priority
+  if (isPriority) {
+    return queryLocalEngine(text, customSystemPrompt, true);
+  }
+  if (activeLocalQueries >= 2) {
+    await new Promise(resolve => localQueryWaiters.push(resolve));
+  }
+  activeLocalQueries++;
+  try {
+    return await queryLocalEngine(text, customSystemPrompt, false);
+  } finally {
+    activeLocalQueries--;
+    if (localQueryWaiters.length > 0) {
+      const next = localQueryWaiters.shift();
+      next();
+    }
+  }
 }
-async function queryLocalEngine(text, customSystemPrompt = null) {
+async function queryLocalEngine(text, customSystemPrompt = null, isPriority = false) {
   const baseUrl = await getLocalServerBaseUrl();
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000);
+  const timeoutMs = isPriority ? 6000 : 10000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  const tokenBudget = Math.min(1024, Math.max(64, Math.ceil(text.length * 2)));
 
   const payload = {
     messages: [
@@ -290,10 +308,9 @@ async function queryLocalEngine(text, customSystemPrompt = null) {
     temperature: 0.1,
     frequency_penalty: 0.0,
     presence_penalty: 0.0,
-    cache_prompt: false,
-    id_slot: 0,
+    cache_prompt: true,
     stop: ["\n\nملاحظة:", "\n\nNote:", "Translation:"],
-    max_tokens: 4096
+    max_tokens: tokenBudget
   };
 
   const endpoint = `${baseUrl}/v1/chat/completions`;
@@ -414,11 +431,11 @@ async function handleTranslate({ text, mode = 'auto', targetLang = 'ar', bypassC
           const chunks = splitIntoChunks(trimmed, 1300);
           const results = [];
           for (const c of chunks) {
-            results.push(await queryLocalEngineSafe(c));
+            results.push(await queryLocalEngineSafe(c, null, true));
           }
           translatedText = results.join('\n\n');
         } else {
-          translatedText = await queryLocalEngineSafe(trimmed);
+          translatedText = await queryLocalEngineSafe(trimmed, null, true);
         }
         if (translatedText) {
           usedEngine = 'Local AI (GPU)';
@@ -861,4 +878,3 @@ chrome.commands.onCommand.addListener(async (command) => {
     chrome.tabs.create({ url: chrome.runtime.getURL('reader/reader.html') });
   }
 });
-

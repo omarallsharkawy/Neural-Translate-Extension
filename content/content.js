@@ -661,10 +661,28 @@
     });
     tooltip.classList.add('visible');
 
+    let hasHandledResponse = false;
+    const safetyTimer = setTimeout(() => {
+      if (!hasHandledResponse) {
+        hasHandledResponse = true;
+        renderTooltipContent({
+          original: text,
+          translated: 'استغرق المحرك وقتاً أطول من المتوقع. انقر على "إعادة الترجمة" لإعادة المحاولة فوراً.',
+          loading: false,
+          engine: 'تنبيه',
+          durationMs: 7000
+        });
+      }
+    }, 7000);
+
     chrome.runtime.sendMessage(
       { action: 'TRANSLATE', text, mode: preferredMode, targetLang: 'ar' },
       (response) => {
-        if (!response) {
+        if (hasHandledResponse) return;
+        hasHandledResponse = true;
+        clearTimeout(safetyTimer);
+
+        if (chrome.runtime.lastError || !response) {
           renderTooltipContent({
             original: text,
             translated: 'تعذر الاتصال بمحرك الترجمة.',
@@ -749,7 +767,17 @@
     if (retryBtn) {
       retryBtn.addEventListener('click', () => {
         renderTooltipContent({ original, translated: '', loading: true, engine: 'AI', durationMs: 0 });
+        let retryHandled = false;
+        const retryTimer = setTimeout(() => {
+          if (!retryHandled) {
+            retryHandled = true;
+            renderTooltipContent({ original, translated: 'استغرق المحرك وقتاً أطول من المتوقع.', loading: false, engine: 'تنبيه', durationMs: 7000 });
+          }
+        }, 7000);
         chrome.runtime.sendMessage({ action: 'TRANSLATE', text: original, mode: preferredMode, targetLang: 'ar', bypassCache: true }, (res) => {
+          if (retryHandled) return;
+          retryHandled = true;
+          clearTimeout(retryTimer);
           if (!res) { renderTooltipContent({ original, translated: 'تعذر الاتصال بمحرك الترجمة.', loading: false, engine: 'خطأ', durationMs: 0 }); return; }
           renderTooltipContent({ original, translated: res.text, loading: false, engine: res.engine, durationMs: res.durationMs, fromCache: false });
         });
