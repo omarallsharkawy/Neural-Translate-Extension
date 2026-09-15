@@ -220,9 +220,9 @@ document.addEventListener('DOMContentLoaded', () => {
       btnTestApi.querySelector('span').textContent = 'اختبار الاتصال';
 
       if (res?.success) {
-        showApiFeedback(`✅ الاتصال ناجح (${res.durationMs}ms): "${res.sampleResult}"`, true);
+        showApiFeedback(`الاتصال ناجح (${res.durationMs}ms): "${res.sampleResult}"`, true);
       } else {
-        showApiFeedback(`❌ فشل الاتصال: ${res?.error || 'خطأ غير معروف'}`, false);
+        showApiFeedback(`فشل الاتصال: ${res?.error || 'خطأ غير معروف'}`, false);
       }
     });
   });
@@ -410,10 +410,10 @@ document.addEventListener('DOMContentLoaded', () => {
       btnTestLocalAi.querySelector('span').textContent = 'فحص الموديل المحلي';
 
       if (res?.success) {
-        localAiTestFeedback.textContent = `✅ الخادم المحلي متصل ويعمل بنجاح (${res.durationMs}ms): ${res.url}`;
+        localAiTestFeedback.textContent = `الخادم المحلي متصل ويعمل بنجاح (${res.durationMs}ms): ${res.url}`;
         localAiTestFeedback.className = 'test-feedback success';
       } else {
-        localAiTestFeedback.textContent = `❌ تعذر الاتصال بالخادم المحلي: ${res?.error || 'خطأ غير معروف'}`;
+        localAiTestFeedback.textContent = `تعذر الاتصال بالخادم المحلي: ${res?.error || 'خطأ غير معروف'}`;
         localAiTestFeedback.className = 'test-feedback error';
       }
     });
@@ -444,4 +444,3 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });
-

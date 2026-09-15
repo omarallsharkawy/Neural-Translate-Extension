@@ -4,10 +4,11 @@
 bdi.neural-in-place-replaced {
   unicode-bidi: isolate !important;
   direction: rtl !important;
-  background-color: transparent !important;
-  border-bottom: 1.5px solid rgba(183, 130, 94, 0.7) !important;
-  border-radius: 1px !important;
-  padding: 0 2px !important;
+  background-color: rgba(183, 130, 94, 0.08) !important;
+  border-bottom: 1px dashed rgba(183, 130, 94, 0.45) !important;
+  text-decoration: none !important;
+  border-radius: 2px !important;
+  padding: 0 3px !important;
   margin: 0 1px !important;
   cursor: pointer !important;
   font-family: inherit !important;
@@ -15,11 +16,12 @@ bdi.neural-in-place-replaced {
   font-weight: inherit !important;
   line-height: inherit !important;
   color: inherit !important;
+  display: inline !important;
   transition: background-color 0.15s ease, border-color 0.15s ease !important;
 }
 
 bdi.neural-in-place-replaced:hover {
-  background-color: rgba(183, 130, 94, 0.1) !important;
+  background-color: rgba(183, 130, 94, 0.16) !important;
   border-bottom-color: #d0a381 !important;
 }
 
@@ -42,8 +44,8 @@ bdi.neural-tech-token {
   z-index: 2147483640;
   background: #1c1916;
   color: #e8decd;
-  border: 1px solid rgba(232, 222, 205, 0.18);
-  border-radius: 4px;
+  border: 1px solid rgba(232, 222, 205, 0.16);
+  border-radius: 3px;
   padding: 8px 12px;
   font-family: "Manrope", "Noto Sans Arabic", system-ui, sans-serif;
   font-size: 12.5px;
@@ -74,4 +76,3 @@ bdi.neural-tech-token {
   from { opacity: 0; transform: translateY(3px); }
   to { opacity: 1; transform: translateY(0); }
 }
-

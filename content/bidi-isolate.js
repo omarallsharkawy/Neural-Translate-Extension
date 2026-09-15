@@ -12,6 +12,15 @@
     return ARABIC_REGEX.test(str);
   }
 
+  function isPredominantlyArabic(str) {
+    if (!str) return false;
+    const arabic = str.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/g);
+    if (!arabic) return false;
+    const latin = str.match(/[a-zA-Z]/g);
+    if (!latin) return true;
+    return arabic.length >= latin.length;
+  }
+
   function isolateInlineTerms(htmlOrText) {
     if (!isArabic(htmlOrText)) return htmlOrText;
     return htmlOrText.replace(
@@ -45,9 +54,9 @@
 
   window.NeuralBiDi = {
     isArabic,
+    isPredominantlyArabic,
     isolateInlineTerms,
     createReplacedElement,
     escapeHtml
   };
 })();
-

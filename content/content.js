@@ -9,12 +9,15 @@
 (function() {
   'use strict';
 
-  // Cleanup any orphaned host element from previous reload
+  // Comprehensive cleanup of any stale host elements from prior runs or reloads
   try {
-    document.querySelectorAll("neural-translate-host").forEach(el => el.remove());
+    const staleHosts = document.querySelectorAll('neural-translate-host, #neural-translate-host, .nt-pill, .nt-card, .neural-floating-pill, .neural-revert-bubble');
+    staleHosts.forEach(el => el.remove());
   } catch(e) {}
-  if (window.__neuralTranslateInjected) return;
-  window.__neuralTranslateInjected = true;
+
+  // Stamp unique active instance ID to instantly neutralize stale listeners from previous injections
+  const CURRENT_INSTANCE_ID = Date.now() + '-' + Math.random().toString(36).substring(2, 9);
+  window.__neuralTranslateActiveInstanceId = CURRENT_INSTANCE_ID;
 
   // --- State ---
   let hostEl = null;
@@ -50,7 +53,12 @@
       <button class="nt-action-btn" id="nt-open-pdf-btn" style="background:#1d9bf0!important;color:#fff!important;border:none!important;border-radius:3px!important;padding:6px 14px!important;font-size:12px!important;font-weight:600!important;cursor:pointer!important;">
         <span>فتح في Neural Reader للترجمة</span>
       </button>
-      <button class="nt-btn-icon" id="nt-close-pdf-banner" title="إغلاق" style="background:transparent!important;border:none!important;color:#8d8171!important;cursor:pointer!important;font-size:14px!important;">✕</button>
+      <button class="nt-btn-icon" id="nt-close-pdf-banner" title="إغلاق" style="background:transparent!important;border:none!important;color:#8d8171!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
     `;
 
     shadow.appendChild(pdfBanner);
@@ -113,6 +121,7 @@
 
   // --- 2. Reliable Keyboard Shortcuts (Alt+Shift+R and Alt+Shift+T) ---
   document.addEventListener('keydown', (e) => {
+    if (window.__neuralTranslateActiveInstanceId !== CURRENT_INSTANCE_ID) return;
     // Alt + Shift + R -> Open Reader (Supports both English 'R' and Arabic 'ق' layout)
     if (e.altKey && e.shiftKey && (e.code === 'KeyR' || e.key === 'R' || e.key === 'r' || e.key === 'ق')) {
       e.preventDefault();
@@ -189,9 +198,9 @@
         align-items: center;
         background: #1c1916;
         border: 1px solid rgba(183, 130, 94, 0.6);
-        border-radius: 4px;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
-        padding: 6px 12px;
+        border-radius: 3px;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+        padding: 5px 12px;
         cursor: pointer;
         opacity: 0;
         visibility: hidden;
@@ -231,8 +240,8 @@
         width: 390px;
         max-width: calc(100vw - 32px);
         background: #1c1916;
-        border: 1px solid rgba(232, 222, 205, 0.18);
-        border-radius: 4px;
+        border: 1px solid rgba(232, 222, 205, 0.16);
+        border-radius: 3px;
         box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85);
         overflow: hidden;
         opacity: 0;
@@ -510,10 +519,23 @@
   // --- Selection Tracking ---
   let selectionTimeout = null;
 
+  function isArabicSelection(str) {
+    if (!str) return false;
+    const arabic = str.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/g);
+    if (!arabic) return false;
+    const latin = str.match(/[a-zA-Z]/g);
+    if (!latin) return true;
+    return arabic.length >= latin.length;
+  }
+
   document.addEventListener('mouseup', (e) => {
+    if (window.__neuralTranslateActiveInstanceId !== CURRENT_INSTANCE_ID) return;
     const path = e.composedPath ? e.composedPath() : [];
     if (hostEl && (path.includes(hostEl) || (shadow && path.includes(shadow)) || path.some(el => el.id === 'neural-translate-host'))) return;
-    if (tooltip && tooltip.classList.contains('visible')) return;
+    if (tooltip && tooltip.classList.contains('visible')) {
+      hideMicroPill();
+      return;
+    }
 
     clearTimeout(selectionTimeout);
     selectionTimeout = setTimeout(() => {
@@ -522,6 +544,7 @@
   });
 
   document.addEventListener('mousedown', (e) => {
+    if (window.__neuralTranslateActiveInstanceId !== CURRENT_INSTANCE_ID) return;
     if (e.button === 2) return;
     // Do not dismiss if clicking inside shadow root or extension host
     const path = e.composedPath ? e.composedPath() : [];
@@ -544,7 +567,7 @@
     const selection = window.getSelection();
     const text = selection ? selection.toString().trim() : '';
 
-    if (!text || text.length < 2) {
+    if (!text || text.length < 2 || isArabicSelection(text)) {
       hideMicroPill();
       return;
     }
@@ -578,6 +601,8 @@
           const pillLeft = Math.min(Math.max(12, rect.right - 50), window.innerWidth - 120);
           const pillTop = rect.bottom + 8 > window.innerHeight - 50 ? Math.max(10, rect.top - 38) : rect.bottom + 8;
 
+          microPill.style.display = 'inline-flex';
+          microPill.style.visibility = 'visible';
           microPill.style.left = `${Math.round(pillLeft)}px`;
           microPill.style.top = `${Math.round(pillTop)}px`;
           microPill.classList.add('visible');
@@ -589,15 +614,14 @@
   function hideMicroPill() {
     if (microPill) {
       microPill.classList.remove('visible');
+      microPill.style.display = 'none';
+      microPill.style.visibility = 'hidden';
     }
   }
 
   function hideTooltip() {
     if (tooltip) {
       tooltip.classList.remove('visible');
-    }
-    if (microPill) {
-      microPill.style.display = '';
     }
   }
 
@@ -831,19 +855,28 @@
   }
 
   function revertAllReplacements() {
-    // 1. Restore all in-place replacements
-    [...activeReplacements].forEach(revertSingleReplacement);
+    // 1. Restore all in-place replacements directly from live DOM
+    try {
+      document.querySelectorAll('bdi.neural-in-place-replaced').forEach(bdi => {
+        const original = bdi.getAttribute('data-neural-original');
+        if (original && bdi.parentNode) {
+          bdi.parentNode.replaceChild(document.createTextNode(original), bdi);
+        }
+      });
+    } catch (e) {}
     activeReplacements = [];
 
     // 2. Restore all full-page text nodes to original values
     if (fullPageOriginalMap.size > 0) {
       for (const [node, originalVal] of fullPageOriginalMap.entries()) {
-        if (node && node.parentNode) {
-          node.nodeValue = originalVal;
-          if (node.parentElement && node.parentElement.hasAttribute("data-content")) {
-            node.parentElement.setAttribute("data-content", originalVal);
+        try {
+          if (node && node.parentNode) {
+            node.nodeValue = originalVal;
+            if (node.parentElement && node.parentElement.hasAttribute("data-content")) {
+              node.parentElement.setAttribute("data-content", originalVal);
+            }
           }
-        }
+        } catch(e) {}
       }
       fullPageOriginalMap.clear();
     }
@@ -852,6 +885,7 @@
     isPageTranslating = false;
     isAutoTranslateActive = false;
     stopDynamicObserver();
+    hideRevertBubble();
 
     // 4. Update floating bar
     updatePageFloatingBar("تمت استعادة النص الأصلي");
@@ -1265,6 +1299,7 @@
   // --- Viewport-Priority Scroll Translator for Continuous Reading ---
   let scrollDebounceTimer = null;
   window.addEventListener('scroll', () => {
+    if (window.__neuralTranslateActiveInstanceId !== CURRENT_INSTANCE_ID) return;
     if (!isAutoTranslateActive) return;
     clearTimeout(scrollDebounceTimer);
     scrollDebounceTimer = setTimeout(() => {
@@ -1317,6 +1352,7 @@
 
   // --- Internal Link Navigation Bridge (Preserves Auto-Translate Across Links) ---
   document.addEventListener('click', (e) => {
+    if (window.__neuralTranslateActiveInstanceId !== CURRENT_INSTANCE_ID) return;
     if (!isAutoTranslateActive) return;
     const a = e.target.closest('a');
     if (a && a.href) {
@@ -1338,6 +1374,7 @@
   // Track last right-clicked element for Section-specific context menu translation
   let lastRightClickedElement = null;
   document.addEventListener("contextmenu", (e) => {
+    if (window.__neuralTranslateActiveInstanceId !== CURRENT_INSTANCE_ID) return;
     lastRightClickedElement = e.target;
   }, true);
 
@@ -1438,4 +1475,3 @@
   }
 
 })();
-
