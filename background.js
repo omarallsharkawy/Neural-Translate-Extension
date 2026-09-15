@@ -290,7 +290,8 @@ async function queryLocalEngineSafe(text, customSystemPrompt = null, isPriority 
   if (isPriority) {
     return queryLocalEngine(text, customSystemPrompt, true);
   }
-  if (activeLocalQueries >= 2) {
+  // Non-priority background batch tasks only use 1 slot, leaving slot 1 dedicated for interactive user clicks
+  if (activeLocalQueries >= 1) {
     await new Promise(resolve => localQueryWaiters.push(resolve));
   }
   activeLocalQueries++;
