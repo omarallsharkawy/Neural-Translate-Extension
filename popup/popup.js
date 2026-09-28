@@ -316,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
     quickDuration.textContent = 'تحليل...';
 
     chrome.runtime.sendMessage(
-      { action: 'TRANSLATE', text, mode: currentMode, targetLang: 'ar' },
+      { action: 'TRANSLATE', text, mode: currentMode, targetLang: 'auto' },
       (res) => {
         translateBtn.disabled = false;
         translateBtn.querySelector('span').textContent = 'ترجمة فورية';

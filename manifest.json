@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Neural Translate Extension",
   "short_name": "NeuralTranslate",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "ترجمة ذكية فورية هجينة مع كبسولة عائمة، استبدال مكاني معزول للاتجاه BiDi، ترجمة تلقائية مستمرة، وقارئ كتب ومستندات PDF و Word و EPUB و Markdown.",
   "icons": {
     "16": "icons/icon16.png",
@@ -76,6 +76,12 @@
         "default": "Alt+Shift+R"
       },
       "description": "فتح قارئ الكتب والمقالات"
+    },
+    "quick_translate": {
+      "suggested_key": {
+        "default": "Alt+Shift+X"
+      },
+      "description": "كتابة وترجمة نص فوري"
     }
   }
 }

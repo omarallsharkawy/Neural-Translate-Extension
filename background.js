@@ -19,6 +19,22 @@ Rules:
 3. Complete & Faithful: Translate every single line and sentence completely without skipping or leaving blanks. Preserve line breaks, emojis, and @usernames.
 4. Output: Output ONLY the translated Arabic text verbatim without quotes or explanations.`;
 
+const SYSTEM_PROMPT_TO_EN = `You are an elite bilingual translator for software developers and researchers.
+Translate Arabic text into clear, modern, idiomatic technical English.
+Rules:
+1. Preserve technical acronyms and terminology faithfully.
+2. Complete & Faithful: Translate every single line completely without skipping or leaving blanks.
+3. Output: Output ONLY the translated English text verbatim without quotes or explanations.`;
+
+function isPredominantlyArabic(str) {
+  if (!str) return false;
+  const arabic = str.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/g);
+  if (!arabic) return false;
+  const latin = str.match(/[a-zA-Z]/g);
+  if (!latin) return true;
+  return arabic.length >= latin.length;
+}
+
 // --- IndexedDB Cache Implementation ---
 const DB_NAME = 'NeuralTranslateCache';
 const DB_VERSION = 1;
@@ -393,16 +409,21 @@ async function queryFastCloudSingle(text, targetLang = 'ar') {
 }
 
 // --- Unified Multi-Engine Hybrid Router ---
-async function handleTranslate({ text, mode = 'auto', targetLang = 'ar', bypassCache = false }) {
+async function handleTranslate({ text, mode = 'auto', targetLang = 'auto', bypassCache = false }) {
   if (!text || typeof text !== 'string' || !text.trim()) {
     return { text: '', engine: 'none', fromCache: false };
   }
 
   const trimmed = text.trim();
+  let effectiveTargetLang = targetLang;
+  if (effectiveTargetLang === 'auto') {
+    effectiveTargetLang = isPredominantlyArabic(trimmed) ? 'en' : 'ar';
+  }
+  const activeSystemPrompt = effectiveTargetLang === 'en' ? SYSTEM_PROMPT_TO_EN : SYSTEM_PROMPT;
   const customConfig = await getCustomApiConfig();
   const customModelName = customConfig?.enabled ? (customConfig.model || 'custom') : '';
 
-  const key = hashKey(trimmed, mode, targetLang, customModelName);
+  const key = hashKey(trimmed, mode, effectiveTargetLang, customModelName);
 
   if (bypassCache) {
     hotCache.delete(key);
@@ -425,7 +446,7 @@ async function handleTranslate({ text, mode = 'auto', targetLang = 'ar', bypassC
   // Priority 1: Custom Cloud API (DeepSeek / GLM / OpenAI / Anthropic)
   if ((mode === 'custom' || (mode === 'auto' && customConfig?.enabled)) && customConfig?.apiKey) {
     try {
-      translatedText = await queryCustomApi(trimmed, customConfig);
+      translatedText = await queryCustomApi(trimmed, customConfig, activeSystemPrompt);
       if (translatedText) {
         usedEngine = `API (${customConfig.model || 'Custom'})`;
         success = true;
@@ -444,11 +465,11 @@ async function handleTranslate({ text, mode = 'auto', targetLang = 'ar', bypassC
           const chunks = splitIntoChunks(trimmed, 1300);
           const results = [];
           for (const c of chunks) {
-            results.push(await queryLocalEngineSafe(c, null, true));
+            results.push(await queryLocalEngineSafe(c, activeSystemPrompt, true));
           }
           translatedText = results.join('\n\n');
         } else {
-          translatedText = await queryLocalEngineSafe(trimmed, null, true);
+          translatedText = await queryLocalEngineSafe(trimmed, activeSystemPrompt, true);
         }
         if (translatedText) {
           usedEngine = 'Local AI (GPU)';
@@ -463,7 +484,7 @@ async function handleTranslate({ text, mode = 'auto', targetLang = 'ar', bypassC
   // Priority 3: Fast Cloud Fallback
   if (!success) {
     try {
-      translatedText = await queryFastCloud(trimmed, targetLang);
+      translatedText = await queryFastCloud(trimmed, effectiveTargetLang);
       usedEngine = (mode !== 'fast') ? 'Cloud (Fallback)' : 'Fast Cloud';
     } catch (err) {
       console.error('[Neural Translate] Cloud translation error:', err);
@@ -475,6 +496,7 @@ async function handleTranslate({ text, mode = 'auto', targetLang = 'ar', bypassC
   const resultPayload = {
     text: translatedText || trimmed,
     engine: usedEngine,
+    targetLang: effectiveTargetLang,
     durationMs: Date.now() - startTime
   };
 
@@ -802,6 +824,14 @@ chrome.runtime.onInstalled.addListener(async () => {
       contexts: ['all']
     });
 
+    // 3.5 Quick Translate on page (Interactive Box)
+    chrome.contextMenus.create({
+      parentId: 'neural-main-menu',
+      id: 'neural-menu-quick-translate',
+      title: 'كتابة وترجمة نص (Quick Translate)',
+      contexts: ['all']
+    });
+
     // 4. Selection: In-place direct replace
     chrome.contextMenus.create({
       parentId: 'neural-main-menu',
@@ -847,6 +877,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!tab?.id) return;
 
   switch (info.menuItemId) {
+    case 'neural-menu-quick-translate':
+      await safeSendMessage(tab.id, { action: 'OPEN_QUICK_TRANSLATE_MODAL' });
+      break;
     case 'neural-menu-translate-single-page':
       await safeSendMessage(tab.id, { action: 'TRIGGER_SINGLE_PAGE_TRANSLATE' });
       break;
@@ -895,6 +928,8 @@ chrome.commands.onCommand.addListener(async (command) => {
   if (!tabs[0]?.id) return;
   if (command === 'toggle_page_translate') {
     await safeSendMessage(tabs[0].id, { action: 'TRIGGER_PAGE_TRANSLATE' });
+  } else if (command === 'quick_translate') {
+    await safeSendMessage(tabs[0].id, { action: 'OPEN_QUICK_TRANSLATE_MODAL' });
   } else if (command === 'open_reader') {
     chrome.tabs.create({ url: chrome.runtime.getURL('reader/reader.html') });
   }

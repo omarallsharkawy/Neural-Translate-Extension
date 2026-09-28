@@ -24,6 +24,7 @@
   let shadow = null;
   let microPill = null;
   let tooltip = null;
+  let quickDialog = null;
   let pageToolbar = null;
   let currentSelectionRange = null;
   let currentSelectionText = '';
@@ -33,6 +34,8 @@
   let fullPageOriginalMap = new Map();
   let preferredMode = 'auto';
   let autoPillEnabled = true;
+  let currentCardDirection = 'auto'; // 'auto', 'en', 'ar'
+  let quickDialogDirection = 'auto';
 
   // --- PDF Viewer Detection & Smart Bridge ---
   const isPdfDocument = (document.contentType === 'application/pdf') || (/\.pdf($|[?#])/i.test(window.location.href));
@@ -145,6 +148,14 @@
     if (e.key === 'Escape') {
       hideMicroPill();
       hideTooltip();
+      hideQuickDialog();
+    }
+
+    // Alt + Shift + X -> Open Quick Translate Modal on page
+    if (e.altKey && e.shiftKey && (e.code === 'KeyX' || e.key === 'X' || e.key === 'x' || e.key === 'ء')) {
+      e.preventDefault();
+      openQuickTranslateModal();
+      return;
     }
   });
 
@@ -160,6 +171,7 @@
       shadow = hostEl.shadowRoot;
       microPill = shadow.querySelector(".nt-pill");
       tooltip = shadow.querySelector(".nt-card");
+      quickDialog = shadow.querySelector(".nt-quick-modal");
       return;
     }
     if (hostEl && document.contains(hostEl)) return;
@@ -253,6 +265,109 @@
         opacity: 1;
         visibility: visible;
         transform: scale(1) translateY(0);
+      }
+
+      /* Quick Translate Modal Dialog */
+      .nt-quick-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(10, 8, 7, 0.65);
+        backdrop-filter: blur(2px);
+        z-index: 2147483646;
+        pointer-events: auto;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease, visibility 0.2s;
+      }
+      .nt-quick-backdrop.visible {
+        opacity: 1;
+        visibility: visible;
+      }
+      .nt-quick-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(0.96);
+        width: 480px;
+        max-width: calc(100vw - 32px);
+        background: #1c1916;
+        border: 1px solid rgba(232, 222, 205, 0.2);
+        border-radius: 4px;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.95);
+        z-index: 2147483647;
+        pointer-events: auto;
+        overflow: hidden;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+      }
+      .nt-quick-modal.visible {
+        opacity: 1;
+        visibility: visible;
+        transform: translate(-50%, -50%) scale(1);
+      }
+      .nt-input-wrap {
+        position: relative;
+        background: #100e0c;
+        border: 1px solid rgba(232, 222, 205, 0.12);
+        border-radius: 3px;
+        padding: 8px 10px;
+        margin-bottom: 10px;
+        transition: border-color 0.15s ease;
+      }
+      .nt-input-wrap:focus-within {
+        border-color: rgba(183, 130, 94, 0.7);
+      }
+      .nt-editable-input {
+        width: 100%;
+        background: transparent;
+        border: none;
+        outline: none;
+        color: #e8decd;
+        font-family: inherit;
+        font-size: 13.5px;
+        line-height: 1.5;
+        resize: none;
+        box-sizing: border-box;
+        padding: 0;
+        display: block;
+      }
+      .nt-editable-input::placeholder {
+        color: #8d8171;
+      }
+      .nt-input-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 6px;
+        font-size: 11px;
+        color: #8d8171;
+      }
+      .nt-lang-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: rgba(183, 130, 94, 0.12);
+        border: 1px solid rgba(183, 130, 94, 0.3);
+        color: #d0a381;
+        padding: 2px 7px;
+        border-radius: 2px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10.5px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .nt-lang-tag:hover {
+        background: rgba(183, 130, 94, 0.2);
+        border-color: #d0a381;
+      }
+      .nt-hint-text {
+        font-size: 10.5px;
+        color: #8d8171;
+        font-family: "JetBrains Mono", monospace;
       }
 
       /* Header */
@@ -483,6 +598,16 @@
     tooltip = document.createElement('div');
     tooltip.className = 'nt-card';
     shadow.appendChild(tooltip);
+
+    // Quick Dialog Modal & Backdrop
+    const backdrop = document.createElement('div');
+    backdrop.className = 'nt-quick-backdrop';
+    backdrop.addEventListener('click', hideQuickDialog);
+    shadow.appendChild(backdrop);
+
+    quickDialog = document.createElement('div');
+    quickDialog.className = 'nt-quick-modal';
+    shadow.appendChild(quickDialog);
 
     (document.body || document.documentElement).appendChild(hostEl);
   }
@@ -744,6 +869,8 @@
   }
 
   function renderTooltipContent({ original, translated, loading, engine, durationMs, fromCache }) {
+    const isAr = isArabicSelection(original);
+    const currentDirLabel = isAr ? 'AR → EN' : 'EN → AR';
     tooltip.innerHTML = `
       <div class="nt-header">
         <div class="nt-header-left">
@@ -751,6 +878,7 @@
             <span>Neural Translate</span>
           </div>
           <span class="nt-badge">${engine || 'AI'}</span>
+          <span class="nt-lang-tag nt-card-lang-toggle" title="تبديل اتجاه الترجمة">${currentDirLabel}</span>
         </div>
         <div class="nt-header-actions">
           <button class="nt-btn-icon nt-close-btn" title="إغلاق (Esc)">
@@ -763,7 +891,13 @@
       </div>
 
       <div class="nt-body">
-        <div class="nt-source-snippet" title="${escapeHtml(original)}">${escapeHtml(original)}</div>
+        <div class="nt-input-wrap">
+          <textarea class="nt-editable-input nt-card-input" rows="2" placeholder="اكتب أو عدل النص هنا... (Enter للترجمة)">${escapeHtml(original)}</textarea>
+          <div class="nt-input-bar">
+            <span class="nt-hint-text">Enter للترجمة · Shift+Enter لسطر جديد</span>
+            <button class="nt-btn-icon nt-card-clear" title="مسح النص" style="width:18px;height:18px;">✕</button>
+          </div>
+        </div>
         ${loading ? `
           <div class="nt-loading-shimmer">
             <div class="nt-shimmer-line" style="width: 85%;"></div>
@@ -781,7 +915,7 @@
         </div>
         <div class="nt-btn-group">
           ${!loading ? `
-            <button class="nt-action-btn nt-btn-secondary nt-retry-btn" title="إعادة الترجمة وتحديث النتيجة"><span>إعادة الترجمة</span></button>
+            <button class="nt-action-btn nt-btn-secondary nt-retry-btn" title="إعادة الترجمة وتحديث النتيجة"><span>ترجمة</span></button>
             <button class="nt-action-btn nt-btn-secondary nt-copy-btn" title="نسخ الترجمة">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -802,25 +936,62 @@
 
     tooltip.querySelector('.nt-close-btn')?.addEventListener('click', hideTooltip);
 
+    const cardInput = tooltip.querySelector('.nt-card-input');
+    const cardClear = tooltip.querySelector('.nt-card-clear');
+    const cardLangToggle = tooltip.querySelector('.nt-card-lang-toggle');
+
+    cardClear?.addEventListener('click', () => {
+      if (cardInput) {
+        cardInput.value = '';
+        cardInput.focus();
+      }
+    });
+
+    const executeCardTranslate = (bypassCache = false) => {
+      const newText = cardInput ? cardInput.value.trim() : original;
+      if (!newText) return;
+      renderTooltipContent({ original: newText, translated: '', loading: true, engine: 'AI', durationMs: 0 });
+      let retryHandled = false;
+      const retryTimer = setTimeout(() => {
+        if (!retryHandled) {
+          retryHandled = true;
+          fallbackTranslateDirect(newText).then(r => {
+            renderTooltipContent({ original: newText, translated: r.text, loading: false, engine: r.engine, durationMs: 2800 });
+          });
+        }
+      }, 2800);
+
+      const targetLang = (currentCardDirection === 'auto') ? (isArabicSelection(newText) ? 'en' : 'ar') : currentCardDirection;
+      chrome.runtime.sendMessage({ action: 'TRANSLATE', text: newText, mode: preferredMode, targetLang, bypassCache }, (res) => {
+        if (retryHandled) return;
+        retryHandled = true;
+        clearTimeout(retryTimer);
+        if (!res) {
+          fallbackTranslateDirect(newText).then(r => {
+            renderTooltipContent({ original: newText, translated: r.text, loading: false, engine: r.engine, durationMs: 120 });
+          });
+          return;
+        }
+        renderTooltipContent({ original: newText, translated: res.text, loading: false, engine: res.engine, durationMs: res.durationMs, fromCache: res.fromCache });
+      });
+    };
+
+    cardInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        executeCardTranslate(true);
+      }
+    });
+
+    cardLangToggle?.addEventListener('click', () => {
+      const newText = cardInput ? cardInput.value.trim() : original;
+      currentCardDirection = (currentCardDirection === 'en') ? 'ar' : 'en';
+      executeCardTranslate(true);
+    });
+
     const retryBtn = tooltip.querySelector('.nt-retry-btn');
     if (retryBtn) {
-      retryBtn.addEventListener('click', () => {
-        renderTooltipContent({ original, translated: '', loading: true, engine: 'AI', durationMs: 0 });
-        let retryHandled = false;
-        const retryTimer = setTimeout(() => {
-          if (!retryHandled) {
-            retryHandled = true;
-            renderTooltipContent({ original, translated: 'استغرق المحرك وقتاً أطول من المتوقع.', loading: false, engine: 'تنبيه', durationMs: 7000 });
-          }
-        }, 7000);
-        chrome.runtime.sendMessage({ action: 'TRANSLATE', text: original, mode: preferredMode, targetLang: 'ar', bypassCache: true }, (res) => {
-          if (retryHandled) return;
-          retryHandled = true;
-          clearTimeout(retryTimer);
-          if (!res) { renderTooltipContent({ original, translated: 'تعذر الاتصال بمحرك الترجمة.', loading: false, engine: 'خطأ', durationMs: 0 }); return; }
-          renderTooltipContent({ original, translated: res.text, loading: false, engine: res.engine, durationMs: res.durationMs, fromCache: false });
-        });
-      });
+      retryBtn.addEventListener('click', () => executeCardTranslate(true));
     }
     const copyBtn = tooltip.querySelector('.nt-copy-btn');
     if (copyBtn) {
@@ -1485,6 +1656,11 @@
 
   // --- Message Listener ---
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'OPEN_QUICK_TRANSLATE_MODAL') {
+      openQuickTranslateModal(request.text || '');
+      sendResponse({ status: 'opened' });
+      return false;
+    }
     if (request.action === 'TRIGGER_SELECTION_TRANSLATE') {
       const sel = window.getSelection();
       const text = request.selectionText || (sel ? sel.toString().trim() : '') || currentSelectionText;
@@ -1539,6 +1715,178 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  // --- Quick Translate Modal Implementation ---
+  function hideQuickDialog() {
+    if (!shadow) return;
+    const backdrop = shadow.querySelector('.nt-quick-backdrop');
+    const modal = shadow.querySelector('.nt-quick-modal');
+    backdrop?.classList.remove('visible');
+    modal?.classList.remove('visible');
+  }
+
+  function openQuickTranslateModal(initialText = '') {
+    initShadowHost();
+    hideMicroPill();
+    hideTooltip();
+
+    const backdrop = shadow.querySelector('.nt-quick-backdrop');
+    const modal = shadow.querySelector('.nt-quick-modal');
+    if (!modal || !backdrop) return;
+
+    const selectionText = initialText || (window.getSelection() ? window.getSelection().toString().trim() : '');
+    renderQuickModalContent(modal, selectionText);
+
+    backdrop.classList.add('visible');
+    modal.classList.add('visible');
+
+    const input = modal.querySelector('.nt-quick-input');
+    if (input) {
+      input.focus();
+      if (selectionText) {
+        executeQuickModalTranslate(modal);
+      }
+    }
+  }
+
+  function renderQuickModalContent(modal, text = '', translated = '', loading = false, engine = 'AI', durationMs = 0) {
+    const isAr = isArabicSelection(text);
+    const dirLabel = quickDialogDirection === 'auto' ? (isAr ? 'AR → EN' : 'EN → AR') : (quickDialogDirection === 'en' ? 'AR → EN' : 'EN → AR');
+
+    modal.innerHTML = `
+      <div class="nt-header">
+        <div class="nt-header-left">
+          <div class="nt-brand">
+            <span>Neural Translate</span>
+          </div>
+          <span class="nt-badge">${engine || 'AI'}</span>
+          <button class="nt-lang-tag nt-modal-lang-toggle" title="تبديل اتجاه الترجمة">${dirLabel}</button>
+        </div>
+        <div class="nt-header-actions">
+          <button class="nt-btn-icon nt-modal-close" title="إغلاق (Esc)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="nt-body">
+        <div class="nt-input-wrap">
+          <textarea class="nt-editable-input nt-quick-input" rows="3" placeholder="اكتب أو الصق نصاً هنا للترجمة... (Enter للترجمة)">${escapeHtml(text)}</textarea>
+          <div class="nt-input-bar">
+            <span class="nt-hint-text">Enter للترجمة · Shift+Enter لسطر جديد</span>
+            <button class="nt-btn-icon nt-quick-clear" title="مسح النص" style="width:18px;height:18px;">✕</button>
+          </div>
+        </div>
+
+        ${loading ? `
+          <div class="nt-loading-shimmer">
+            <div class="nt-shimmer-line" style="width: 90%;"></div>
+            <div class="nt-shimmer-line" style="width: 75%;"></div>
+            <div class="nt-shimmer-line" style="width: 80%;"></div>
+          </div>
+        ` : (translated ? `
+          <div class="nt-result" style="min-height: 48px; border-top: 1px solid rgba(232, 222, 205, 0.08); padding-top: 10px;">
+            ${window.NeuralBiDi ? window.NeuralBiDi.isolateInlineTerms(escapeHtml(translated)) : escapeHtml(translated)}
+          </div>
+        ` : `
+          <div style="color: #8d8171; font-size: 12.5px; text-align: center; padding: 16px 0;">اكتب أو الصق أي نص واضغط Enter للحصول على ترجمة فورية</div>
+        `)}
+      </div>
+
+      <div class="nt-footer">
+        <div class="nt-meta-speed">
+          ${loading ? 'جارٍ التحليل...' : (durationMs ? `${durationMs}ms` : 'جاهز')}
+        </div>
+        <div class="nt-btn-group">
+          ${translated && !loading ? `
+            <button class="nt-action-btn nt-btn-secondary nt-quick-copy" title="نسخ الترجمة">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>نسخ</span>
+            </button>
+          ` : ''}
+          <button class="nt-action-btn nt-btn-replace nt-quick-translate-btn">
+            <span>ترجمة فورية</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    modal.querySelector('.nt-modal-close')?.addEventListener('click', hideQuickDialog);
+
+    const qInput = modal.querySelector('.nt-quick-input');
+    const qClear = modal.querySelector('.nt-quick-clear');
+    const qLang = modal.querySelector('.nt-modal-lang-toggle');
+    const qBtn = modal.querySelector('.nt-quick-translate-btn');
+    const qCopy = modal.querySelector('.nt-quick-copy');
+
+    qClear?.addEventListener('click', () => {
+      if (qInput) {
+        qInput.value = '';
+        renderQuickModalContent(modal, '', '', false);
+      }
+    });
+
+    qLang?.addEventListener('click', () => {
+      quickDialogDirection = (quickDialogDirection === 'en') ? 'ar' : 'en';
+      executeQuickModalTranslate(modal);
+    });
+
+    qBtn?.addEventListener('click', () => executeQuickModalTranslate(modal));
+
+    qInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        executeQuickModalTranslate(modal);
+      }
+    });
+
+    qCopy?.addEventListener('click', () => {
+      navigator.clipboard.writeText(translated).then(() => {
+        qCopy.querySelector('span').textContent = 'تم النسخ!';
+        setTimeout(() => {
+          if (qCopy) qCopy.querySelector('span').textContent = 'نسخ';
+        }, 1500);
+      });
+    });
+  }
+
+  function executeQuickModalTranslate(modal) {
+    const input = modal.querySelector('.nt-quick-input');
+    const text = input ? input.value.trim() : '';
+    if (!text) return;
+
+    renderQuickModalContent(modal, text, '', true, 'AI', 0);
+
+    let handled = false;
+    const timer = setTimeout(() => {
+      if (!handled) {
+        handled = true;
+        fallbackTranslateDirect(text).then(r => {
+          renderQuickModalContent(modal, text, r.text, false, r.engine, 2800);
+        });
+      }
+    }, 2800);
+
+    const targetLang = (quickDialogDirection === 'auto') ? (isArabicSelection(text) ? 'en' : 'ar') : quickDialogDirection;
+    chrome.runtime.sendMessage({ action: 'TRANSLATE', text, mode: preferredMode, targetLang }, (res) => {
+      if (handled) return;
+      handled = true;
+      clearTimeout(timer);
+      if (!res || !res.text) {
+        fallbackTranslateDirect(text).then(r => {
+          renderQuickModalContent(modal, text, r.text, false, r.engine, 120);
+        });
+        return;
+      }
+      renderQuickModalContent(modal, text, res.text, false, res.engine, res.durationMs);
+    });
   }
 
 })();
