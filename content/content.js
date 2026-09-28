@@ -274,7 +274,7 @@
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: rgba(10, 8, 7, 0.65);
+        background: rgba(10, 8, 7, 0.45);
         backdrop-filter: blur(2px);
         z-index: 2147483646;
         pointer-events: auto;
@@ -290,9 +290,13 @@
         position: fixed;
         top: 50%;
         left: 50%;
-        transform: translate(-50%, -50%) scale(0.96);
+        transform: translate(-50%, -50%);
         width: 480px;
+        min-width: 340px;
+        min-height: 240px;
         max-width: calc(100vw - 32px);
+        max-height: calc(100vh - 32px);
+        resize: both;
         background: #1c1916;
         border: 1px solid rgba(232, 222, 205, 0.2);
         border-radius: 4px;
@@ -300,14 +304,38 @@
         z-index: 2147483647;
         pointer-events: auto;
         overflow: hidden;
+        display: flex;
+        flex-direction: column;
         opacity: 0;
         visibility: hidden;
-        transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+        transition: opacity 0.15s ease, visibility 0.15s;
       }
       .nt-quick-modal.visible {
         opacity: 1;
         visibility: visible;
-        transform: translate(-50%, -50%) scale(1);
+      }
+      .nt-drag-header {
+        cursor: grab;
+        user-select: none;
+      }
+      .nt-drag-header:active {
+        cursor: grabbing;
+      }
+      .nt-btn-paste {
+        background: #24201c;
+        border: 1px solid rgba(232, 222, 205, 0.16);
+        border-radius: 2px;
+        color: #e8decd;
+        font-size: 11px;
+        padding: 2px 7px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .nt-btn-paste:hover {
+        background: #2e2924;
+        border-color: #d0a381;
       }
       .nt-input-wrap {
         position: relative;
@@ -869,8 +897,9 @@
   }
 
   function renderTooltipContent({ original, translated, loading, engine, durationMs, fromCache }) {
-    const isAr = isArabicSelection(original);
-    const currentDirLabel = isAr ? 'AR → EN' : 'EN → AR';
+    const currentDirLabel = (currentCardDirection === 'auto')
+      ? (isArabicSelection(original) ? 'AR → EN' : 'EN → AR')
+      : (currentCardDirection === 'en' ? 'AR → EN' : 'EN → AR');
     tooltip.innerHTML = `
       <div class="nt-header">
         <div class="nt-header-left">
@@ -878,7 +907,7 @@
             <span>Neural Translate</span>
           </div>
           <span class="nt-badge">${engine || 'AI'}</span>
-          <span class="nt-lang-tag nt-card-lang-toggle" title="تبديل اتجاه الترجمة">${currentDirLabel}</span>
+          <button type="button" class="nt-lang-tag nt-card-lang-toggle" title="تبديل اتجاه الترجمة">${currentDirLabel}</button>
         </div>
         <div class="nt-header-actions">
           <button class="nt-btn-icon nt-close-btn" title="إغلاق (Esc)">
@@ -895,7 +924,13 @@
           <textarea class="nt-editable-input nt-card-input" rows="2" placeholder="اكتب أو عدل النص هنا... (Enter للترجمة)">${escapeHtml(original)}</textarea>
           <div class="nt-input-bar">
             <span class="nt-hint-text">Enter للترجمة · Shift+Enter لسطر جديد</span>
-            <button class="nt-btn-icon nt-card-clear" title="مسح النص" style="width:18px;height:18px;">✕</button>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <button type="button" class="nt-btn-paste nt-card-paste" title="لصق النص">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path></svg>
+                <span>لصق</span>
+              </button>
+              <button class="nt-btn-icon nt-card-clear" title="مسح النص" style="width:18px;height:18px;">✕</button>
+            </div>
           </div>
         </div>
         ${loading ? `
@@ -938,6 +973,7 @@
 
     const cardInput = tooltip.querySelector('.nt-card-input');
     const cardClear = tooltip.querySelector('.nt-card-clear');
+    const cardPaste = tooltip.querySelector('.nt-card-paste');
     const cardLangToggle = tooltip.querySelector('.nt-card-lang-toggle');
 
     cardClear?.addEventListener('click', () => {
@@ -945,6 +981,16 @@
         cardInput.value = '';
         cardInput.focus();
       }
+    });
+
+    cardPaste?.addEventListener('click', async () => {
+      try {
+        const textFromClipboard = await navigator.clipboard.readText();
+        if (textFromClipboard && cardInput) {
+          cardInput.value = textFromClipboard;
+          executeCardTranslate(true);
+        }
+      } catch(e) { cardInput?.focus(); }
     });
 
     const executeCardTranslate = (bypassCache = false) => {
@@ -985,7 +1031,10 @@
 
     cardLangToggle?.addEventListener('click', () => {
       const newText = cardInput ? cardInput.value.trim() : original;
-      currentCardDirection = (currentCardDirection === 'en') ? 'ar' : 'en';
+      const curDir = (currentCardDirection === 'auto')
+        ? (isArabicSelection(newText) ? 'en' : 'ar')
+        : currentCardDirection;
+      currentCardDirection = (curDir === 'en') ? 'ar' : 'en';
       executeCardTranslate(true);
     });
 
@@ -1735,6 +1784,11 @@
     const modal = shadow.querySelector('.nt-quick-modal');
     if (!modal || !backdrop) return;
 
+    // Reset position to center if it was previously dragged
+    modal.style.top = '50%';
+    modal.style.left = '50%';
+    modal.style.transform = 'translate(-50%, -50%)';
+
     const selectionText = initialText || (window.getSelection() ? window.getSelection().toString().trim() : '');
     renderQuickModalContent(modal, selectionText);
 
@@ -1755,13 +1809,13 @@
     const dirLabel = quickDialogDirection === 'auto' ? (isAr ? 'AR → EN' : 'EN → AR') : (quickDialogDirection === 'en' ? 'AR → EN' : 'EN → AR');
 
     modal.innerHTML = `
-      <div class="nt-header">
+      <div class="nt-header nt-drag-header" title="اسحب من هنا لتحريك النافذة">
         <div class="nt-header-left">
           <div class="nt-brand">
             <span>Neural Translate</span>
           </div>
           <span class="nt-badge">${engine || 'AI'}</span>
-          <button class="nt-lang-tag nt-modal-lang-toggle" title="تبديل اتجاه الترجمة">${dirLabel}</button>
+          <button type="button" class="nt-lang-tag nt-modal-lang-toggle" title="تبديل اتجاه الترجمة">${dirLabel}</button>
         </div>
         <div class="nt-header-actions">
           <button class="nt-btn-icon nt-modal-close" title="إغلاق (Esc)">
@@ -1778,7 +1832,13 @@
           <textarea class="nt-editable-input nt-quick-input" rows="3" placeholder="اكتب أو الصق نصاً هنا للترجمة... (Enter للترجمة)">${escapeHtml(text)}</textarea>
           <div class="nt-input-bar">
             <span class="nt-hint-text">Enter للترجمة · Shift+Enter لسطر جديد</span>
-            <button class="nt-btn-icon nt-quick-clear" title="مسح النص" style="width:18px;height:18px;">✕</button>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <button type="button" class="nt-btn-paste nt-quick-paste" title="لصق النص من الحافظة">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path></svg>
+                <span>لصق</span>
+              </button>
+              <button class="nt-btn-icon nt-quick-clear" title="مسح النص" style="width:18px;height:18px;">✕</button>
+            </div>
           </div>
         </div>
 
@@ -1822,9 +1882,11 @@
 
     const qInput = modal.querySelector('.nt-quick-input');
     const qClear = modal.querySelector('.nt-quick-clear');
+    const qPaste = modal.querySelector('.nt-quick-paste');
     const qLang = modal.querySelector('.nt-modal-lang-toggle');
     const qBtn = modal.querySelector('.nt-quick-translate-btn');
     const qCopy = modal.querySelector('.nt-quick-copy');
+    const dragHeader = modal.querySelector('.nt-drag-header');
 
     qClear?.addEventListener('click', () => {
       if (qInput) {
@@ -1833,10 +1895,29 @@
       }
     });
 
-    qLang?.addEventListener('click', () => {
-      quickDialogDirection = (quickDialogDirection === 'en') ? 'ar' : 'en';
+    qPaste?.addEventListener('click', async () => {
+      try {
+        const textFromClipboard = await navigator.clipboard.readText();
+        if (textFromClipboard && qInput) {
+          qInput.value = textFromClipboard;
+          executeQuickModalTranslate(modal);
+        }
+      } catch(e) {
+        qInput?.focus();
+      }
+    });
+
+    qLang?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const currentDir = (quickDialogDirection === 'auto')
+        ? (isArabicSelection(qInput?.value || text) ? 'en' : 'ar')
+        : quickDialogDirection;
+      quickDialogDirection = (currentDir === 'en') ? 'ar' : 'en';
       executeQuickModalTranslate(modal);
     });
+
+    // Enable Dragging for Quick Modal
+    makeElementDraggable(modal, dragHeader);
 
     qBtn?.addEventListener('click', () => executeQuickModalTranslate(modal));
 
@@ -1862,6 +1943,10 @@
     const text = input ? input.value.trim() : '';
     if (!text) return;
 
+    const effectiveDir = (quickDialogDirection === 'auto')
+      ? (isArabicSelection(text) ? 'en' : 'ar')
+      : quickDialogDirection;
+
     renderQuickModalContent(modal, text, '', true, 'AI', 0);
 
     let handled = false;
@@ -1874,7 +1959,7 @@
       }
     }, 2800);
 
-    const targetLang = (quickDialogDirection === 'auto') ? (isArabicSelection(text) ? 'en' : 'ar') : quickDialogDirection;
+    const targetLang = effectiveDir;
     chrome.runtime.sendMessage({ action: 'TRANSLATE', text, mode: preferredMode, targetLang }, (res) => {
       if (handled) return;
       handled = true;
@@ -1887,6 +1972,48 @@
       }
       renderQuickModalContent(modal, text, res.text, false, res.engine, res.durationMs);
     });
+  }
+
+  // Helper: Drag & Move element anywhere on screen
+  function makeElementDraggable(element, handle) {
+    if (!element || !handle) return;
+    let isDragging = false;
+    let startX = 0, startY = 0;
+    let initialLeft = 0, initialTop = 0;
+
+    handle.onmousedown = (e) => {
+      if (e.target.closest('button, input, textarea, a, .nt-lang-tag')) return;
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+
+      const rect = element.getBoundingClientRect();
+      initialLeft = rect.left;
+      initialTop = rect.top;
+
+      element.style.transform = 'none';
+      element.style.left = `${initialLeft}px`;
+      element.style.top = `${initialTop}px`;
+
+      const onMouseMove = (moveEvent) => {
+        if (!isDragging) return;
+        const dx = moveEvent.clientX - startX;
+        const dy = moveEvent.clientY - startY;
+        const newLeft = Math.max(10, Math.min(window.innerWidth - 80, initialLeft + dx));
+        const newTop = Math.max(10, Math.min(window.innerHeight - 80, initialTop + dy));
+        element.style.left = `${newLeft}px`;
+        element.style.top = `${newTop}px`;
+      };
+
+      const onMouseUp = () => {
+        isDragging = false;
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+      };
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    };
   }
 
 })();
