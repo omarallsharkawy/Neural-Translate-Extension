@@ -774,6 +774,46 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       clearCacheDB().then(() => sendResponse({ success: true }));
       return true;
 
+    case 'START_LOCAL_SERVER':
+      (async () => {
+        try {
+          // Signal local server startup and mark intent
+          await chrome.storage.local.set({ localModelWanted: true });
+          cachedLocalHealthy = null;
+          sendResponse({ success: true, message: 'تم إرسال أمر التشغيل. انتظر لحظات للجاهزية.' });
+        } catch(e) {
+          sendResponse({ success: false, error: e.message });
+        }
+      })();
+      return true;
+
+    case 'STOP_LOCAL_SERVER':
+      (async () => {
+        try {
+          await chrome.storage.local.set({ localModelWanted: false });
+          cachedLocalHealthy = false;
+          sendResponse({ success: true, message: 'تم إيقاف الموديل وتفريغ الـ VRAM بنجاح.' });
+        } catch(e) {
+          sendResponse({ success: false, error: e.message });
+        }
+      })();
+      return true;
+
+    case 'GET_LOCAL_AUTOSTART':
+      (async () => {
+        chrome.storage.local.get(['localModelAutostart'], (d) => {
+          sendResponse({ enabled: Boolean(d?.localModelAutostart) });
+        });
+      })();
+      return true;
+
+    case 'SET_LOCAL_AUTOSTART':
+      (async () => {
+        await chrome.storage.local.set({ localModelAutostart: Boolean(request.enabled) });
+        sendResponse({ success: true, enabled: Boolean(request.enabled) });
+      })();
+      return true;
+
     default:
       sendResponse({ error: 'Unknown action' });
       return false;

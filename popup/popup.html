@@ -158,6 +158,29 @@
           </button>
         </div>
 
+        <!-- Local Model Server Control & Autostart Management -->
+        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line);">
+          <div class="card-label" style="margin-bottom: 6px;">التحكم في تشغيل وإيقاف الموديل المحلي (VRAM)</div>
+          <p style="font-size: 11px; color: var(--muted); margin-bottom: 8px;">
+            يمكنك إيقاف تشغيل الموديل لتفريغ كارت الشاشة (VRAM) متى أردت، أو تعطيل التشغيل التلقائي مع فتح النظام.
+          </p>
+          <div class="settings-actions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+            <button id="btn-start-local-ai" class="btn-secondary" style="color: #22c55e; border-color: rgba(34, 197, 94, 0.4);">
+              <span>تشغيل الموديل ▶</span>
+            </button>
+            <button id="btn-stop-local-ai" class="btn-secondary" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.4);">
+              <span>إيقاف الموديل ⏹</span>
+            </button>
+          </div>
+          <div style="background: var(--well); border: 1px solid var(--line); border-radius: 2px; padding: 6px 10px;">
+            <label class="switch-label" style="margin-bottom: 0;">
+              <input type="checkbox" id="toggle-local-autostart">
+              <span class="switch-ui"></span>
+              <span class="switch-text" style="font-size: 11.5px;">بدء الموديل تلقائياً مع تشغيل الجهاز (Autostart)</span>
+            </label>
+          </div>
+        </div>
+
         <div id="local-ai-test-feedback" class="test-feedback hidden"></div>
 
         <!-- Folder & Setup Quick Guide -->

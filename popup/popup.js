@@ -30,6 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const localServerUrlInput = document.getElementById('local-server-url');
   const btnTestLocalAi = document.getElementById('btn-test-local-ai');
   const btnSaveLocalAi = document.getElementById('btn-save-local-ai');
+  const btnStartLocalAi = document.getElementById('btn-start-local-ai');
+  const btnStopLocalAi = document.getElementById('btn-stop-local-ai');
+  const toggleLocalAutostart = document.getElementById('toggle-local-autostart');
   const localAiTestFeedback = document.getElementById('local-ai-test-feedback');
   const localPresetChips = document.querySelectorAll('[data-local-preset]');
   const btnPageTranslate = document.getElementById('btn-page-translate');
@@ -430,6 +433,45 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+
+  // Local Server Service Control (Start / Stop / Autostart)
+  btnStartLocalAi?.addEventListener('click', () => {
+    btnStartLocalAi.disabled = true;
+    btnStartLocalAi.querySelector('span').textContent = 'جارٍ البدء...';
+    chrome.runtime.sendMessage({ action: 'START_LOCAL_SERVER' }, (res) => {
+      btnStartLocalAi.disabled = false;
+      btnStartLocalAi.querySelector('span').textContent = 'تشغيل الموديل ▶';
+      localAiTestFeedback.textContent = res?.message || 'تم إرسال أمر التشغيل.';
+      localAiTestFeedback.className = 'test-feedback success';
+      setTimeout(refreshStatus, 1500);
+    });
+  });
+
+  btnStopLocalAi?.addEventListener('click', () => {
+    btnStopLocalAi.disabled = true;
+    btnStopLocalAi.querySelector('span').textContent = 'جارٍ الإيقاف...';
+    chrome.runtime.sendMessage({ action: 'STOP_LOCAL_SERVER' }, (res) => {
+      btnStopLocalAi.disabled = false;
+      btnStopLocalAi.querySelector('span').textContent = 'إيقاف الموديل ⏹';
+      localAiTestFeedback.textContent = res?.message || 'تم إيقاف الموديل وتفريغ الـ VRAM بنجاح.';
+      localAiTestFeedback.className = 'test-feedback success';
+      setTimeout(refreshStatus, 800);
+    });
+  });
+
+  chrome.runtime.sendMessage({ action: 'GET_LOCAL_AUTOSTART' }, (res) => {
+    if (toggleLocalAutostart && res) {
+      toggleLocalAutostart.checked = Boolean(res.enabled);
+    }
+  });
+
+  toggleLocalAutostart?.addEventListener('change', () => {
+    const enabled = toggleLocalAutostart.checked;
+    chrome.runtime.sendMessage({ action: 'SET_LOCAL_AUTOSTART', enabled }, (res) => {
+      localAiTestFeedback.textContent = enabled ? 'تم تفعيل بدء الموديل تلقائياً مع النظام.' : 'تم تعطيل البدء التلقائي بنجاح.';
+      localAiTestFeedback.className = 'test-feedback success';
+    });
+  });
 
   const btnOpenManualGuide = document.getElementById("btn-open-manual-guide");
   btnOpenManualGuide?.addEventListener("click", () => {

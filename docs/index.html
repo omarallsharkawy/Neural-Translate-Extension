@@ -272,14 +272,20 @@
       <pre># التحقق من حالة الموديل واستهلاك الـ VRAM
 systemctl --user status neural-llama.service
 
-# إعادة تشغيل خدمة الموديل
-systemctl --user restart neural-llama.service
+# تشغيل الموديل يدوياً عند الحاجة
+systemctl --user start neural-llama.service
 
-# إيقاف خدمة الموديل
+# إيقاف خدمة الموديل وتفريغ كارت الشاشة (VRAM)
 systemctl --user stop neural-llama.service
 
-# بدء خدمة الموديل
-systemctl --user start neural-llama.service</pre>
+# تعطيل التشغيل التلقائي مع فتح الجهاز
+systemctl --user disable neural-llama.service
+
+# تفعيل التشغيل التلقائي مع فتح الجهاز
+systemctl --user enable neural-llama.service
+
+# إعادة تشغيل خدمة الموديل
+systemctl --user restart neural-llama.service</pre>
 
             <div class="callout-box" style="border-right-color: #38BDF8;">
         <h3 style="color: #38BDF8;">دليل تشغيل Gemma-4 على نظام ويندوز (Windows Setup Guide)</h3>
